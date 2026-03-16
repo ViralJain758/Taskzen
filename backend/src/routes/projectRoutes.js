@@ -1,7 +1,10 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeWorkspaceRole } from "../middleware/workspaceRoleMiddleware.js";
-import { createProject } from "../controllers/projectController.js";
+import {
+  createProject,
+  getWorkspaceProjects,
+} from "../controllers/projectController.js";
 
 const router = express.Router();
 
@@ -10,6 +13,13 @@ router.post(
   protect,
   authorizeWorkspaceRole(["owner", "admin", "member"]),
   createProject,
+);
+
+router.get(
+  "/:workspaceId",
+  protect,
+  authorizeWorkspaceRole(["owner", "admin", "member"]),
+  getWorkspaceProjects,
 );
 
 export default router;

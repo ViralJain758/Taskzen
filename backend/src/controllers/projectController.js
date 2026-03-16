@@ -28,3 +28,19 @@ export const createProject = async (req, res) => {
     });
   }
 };
+
+export const getWorkspaceProjects = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const projects = await Project.find({
+      workspace: workspaceId,
+    }).populate("createdBy", "name email");
+
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
