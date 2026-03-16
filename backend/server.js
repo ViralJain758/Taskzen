@@ -6,6 +6,7 @@ import connectDB from "./src/config/db.js";
 
 import authRoutes from "./src/routes/authRoutes.js";
 import workspaceRoutes from "./src/routes/workspaceRoutes.js";
+import projectRoutes from "./src/routes/projectRoutes.js";
 
 dotenv.config();
 
@@ -23,12 +24,13 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api/auth", authRoutes);
-app.use("/api/workspaces", workspaceRoutes);
-
 app.get("/", (req, res) => {
   res.send("Taskzen API running");
 });
+
+app.use("/api/auth", authRoutes);
+app.use("/api/workspaces", workspaceRoutes);
+app.use("/api/projects", projectRoutes);
 
 const PORT = process.env.PORT || 5000;
 
