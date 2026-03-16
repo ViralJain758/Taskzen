@@ -51,3 +51,64 @@ export const getProjectTasks = async (req, res) => {
     });
   }
 };
+
+export const updateTaskStatus = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ["todo", "in_progress", "completed"];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status value",
+      });
+    }
+
+    const task = await Task.findByIdAndUpdate(
+      taskId,
+      { status },
+      { new: true },
+    );
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    res.json({
+      message: "Task status updated",
+      task,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const updateTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const updatedTask = await Task.findByIdAndUpdate(taskId, req.body, {
+      new: true,
+    });
+
+    if (!updatedTask) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    res.json({
+      message: "Task updated successfully",
+      task: updatedTask,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
