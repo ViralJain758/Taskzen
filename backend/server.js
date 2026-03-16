@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import connectDB from "./src/config/db.js";
 
 import authRoutes from "./src/routes/authRoutes.js";
+import workspaceRoutes from "./src/routes/workspaceRoutes.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/workspaces", workspaceRoutes);
 
 app.get("/", (req, res) => {
   res.send("Taskzen API running");
