@@ -1,5 +1,6 @@
 import Workspace from "../models/Workspace.js";
 import Membership from "../models/Membership.js";
+import User from "../models/User.js";
 
 export const createWorkspace = async (req, res) => {
   try {
@@ -45,6 +46,47 @@ export const getUserWorkspaces = async (req, res) => {
     }));
 
     res.json(workspaces);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const inviteMember = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const { email, role } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const existingMembership = await Membership.findOne({
+      user: user._id,
+      workspace: workspaceId,
+    });
+
+    if (existingMembership) {
+      return res.status(400).json({
+        message: "User already in workspace",
+      });
+    }
+
+    const membership = await Membership.create({
+      user: user._id,
+      workspace: workspaceId,
+      role: role || "member",
+    });
+
+    res.status(201).json({
+      message: "User added to workspace",
+      membership,
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
