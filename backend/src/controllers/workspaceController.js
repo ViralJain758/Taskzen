@@ -32,3 +32,22 @@ export const createWorkspace = async (req, res) => {
     });
   }
 };
+
+export const getUserWorkspaces = async (req, res) => {
+  try {
+    const memberships = await Membership.find({
+      user: req.user._id,
+    }).populate("workspace");
+
+    const workspaces = memberships.map((m) => ({
+      role: m.role,
+      workspace: m.workspace,
+    }));
+
+    res.json(workspaces);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
