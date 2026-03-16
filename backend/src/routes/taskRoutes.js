@@ -5,6 +5,7 @@ import {
   getProjectTasks,
   updateTaskStatus,
   updateTask,
+  deleteTask,
 } from "../controllers/taskController.js";
 
 const router = express.Router();
@@ -16,5 +17,7 @@ router.get("/:projectId", protect, getProjectTasks);
 router.patch("/:taskId/status", protect, updateTaskStatus);
 
 router.patch("/:taskId", protect, updateTask);
+
+router.delete("/:taskId", protect, deleteTask);
 
 export default router;
