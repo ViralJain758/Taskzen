@@ -32,3 +32,22 @@ export const createTask = async (req, res) => {
     });
   }
 };
+
+export const getProjectTasks = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const tasks = await Task.find({
+      project: projectId,
+    })
+      .populate("assignee", "name email")
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
