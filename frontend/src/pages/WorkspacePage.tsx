@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getProjects, createProject } from "../services/projectService";
 
 interface Project {
@@ -13,6 +13,7 @@ function WorkspacePage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
+  const navigate = useNavigate();
 
   const fetchProjects = useCallback(async (): Promise<Project[]> => {
     try {
@@ -71,7 +72,11 @@ function WorkspacePage() {
       {/* Project List */}
       <div className="grid gap-4">
         {projects.map((p) => (
-          <div key={p._id} className="p-4 border rounded shadow">
+          <div
+            key={p._id}
+            onClick={() => navigate(`/project/${p._id}`)}
+            className="p-4 border rounded shadow cursor-pointer hover:bg-gray-100"
+          >
             <h2 className="text-lg font-semibold">{p.name}</h2>
             <p className="text-sm text-gray-500">{p.description}</p>
           </div>
