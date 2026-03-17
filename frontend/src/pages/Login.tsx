@@ -29,6 +29,9 @@ function Login() {
       auth?.setUser(user);
       auth?.setToken(token);
 
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
       setAuthToken(token);
 
       navigate("/");
