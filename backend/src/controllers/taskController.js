@@ -1,6 +1,7 @@
 import Task from "../models/Task.js";
 import Project from "../models/Project.js";
 import Notification from "../models/Notification.js";
+import Membership from "../models/Membership.js";
 
 export const createTask = async (req, res) => {
   try {
@@ -78,6 +79,39 @@ export const getProjectTasks = async (req, res) => {
   }
 };
 
+export const getProjectAssignees = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const memberships = await Membership.find({
+      workspace: project.workspace,
+    }).populate("user", "name email");
+
+    const assignees = memberships
+      .filter((membership) => membership.user)
+      .map((membership) => ({
+        _id: membership.user._id,
+        name: membership.user.name,
+        email: membership.user.email,
+        role: membership.role,
+      }));
+
+    res.json(assignees);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 export const updateTaskStatus = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -127,13 +161,23 @@ export const updateTask = async (req, res) => {
 
     const updatedTask = await Task.findByIdAndUpdate(taskId, req.body, {
       new: true,
-    });
+    })
+      .populate("project")
+      .populate("assignee", "name email")
+      .populate("createdBy", "name email");
 
     if (!updatedTask) {
       return res.status(404).json({
         message: "Task not found",
       });
     }
+
+    const projectId = updatedTask.project._id.toString();
+
+    req.io.to(`project:${projectId}`).emit("project:task_updated", {
+      projectId,
+      task: updatedTask,
+    });
 
     res.json({
       message: "Task updated successfully",

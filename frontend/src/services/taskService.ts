@@ -1,5 +1,12 @@
 import api from "./api";
 
+export interface ProjectAssignee {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export const getTasks = async (projectId: string) => {
   const res = await api.get(`/tasks/${projectId}`);
   return res.data;
@@ -7,13 +14,25 @@ export const getTasks = async (projectId: string) => {
 
 export const createTask = async (
   projectId: string,
-  data: { title: string },
+  data: { title: string; assignee?: string },
 ) => {
   const res = await api.post(`/tasks/${projectId}`, data);
   return res.data;
 };
 
+export const getProjectAssignees = async (
+  projectId: string,
+): Promise<ProjectAssignee[]> => {
+  const res = await api.get(`/tasks/${projectId}/assignees`);
+  return res.data;
+};
+
 export const updateTaskStatus = async (taskId: string, status: string) => {
   const res = await api.patch(`/tasks/${taskId}/status`, { status });
+  return res.data;
+};
+
+export const updateTaskAssignee = async (taskId: string, assignee?: string) => {
+  const res = await api.patch(`/tasks/${taskId}`, { assignee });
   return res.data;
 };

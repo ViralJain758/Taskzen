@@ -3,6 +3,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import {
   createTask,
   getProjectTasks,
+  getProjectAssignees,
   updateTaskStatus,
   updateTask,
   deleteTask,
@@ -13,6 +14,8 @@ const router = express.Router();
 router.post("/:projectId", protect, createTask);
 
 router.get("/:projectId", protect, getProjectTasks);
+
+router.get("/:projectId/assignees", protect, getProjectAssignees);
 
 router.patch("/:taskId/status", protect, updateTaskStatus);
 
