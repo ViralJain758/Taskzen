@@ -1,4 +1,5 @@
 import Task from "../models/Task.js";
+import Project from "../models/Project.js";
 
 export const createTask = async (req, res) => {
   try {
@@ -12,6 +13,14 @@ export const createTask = async (req, res) => {
       });
     }
 
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
     const task = await Task.create({
       title,
       description,
@@ -22,7 +31,7 @@ export const createTask = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    req.io.to(project.workspace).emit("taskCreated", task);
+    req.io.to(project.workspace.toString()).emit("taskCreated", task);
 
     res.status(201).json({
       message: "Task created successfully",
@@ -71,13 +80,15 @@ export const updateTaskStatus = async (req, res) => {
       taskId,
       { status },
       { new: true },
-    );
+    ).populate("project");
 
     if (!task) {
       return res.status(404).json({
         message: "Task not found",
       });
     }
+
+    req.io.to(task.project.workspace.toString()).emit("taskUpdated", task);
 
     res.json({
       message: "Task status updated",
@@ -119,7 +130,7 @@ export const deleteTask = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const task = await Task.findById(taskId);
+    const task = await Task.findById(taskId).populate("project");
 
     if (!task) {
       return res.status(404).json({
@@ -128,6 +139,8 @@ export const deleteTask = async (req, res) => {
     }
 
     await task.deleteOne();
+
+    req.io.to(task.project.workspace.toString()).emit("taskUpdated", task);
 
     res.json({
       message: "Task deleted successfully",

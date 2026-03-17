@@ -11,11 +11,21 @@ export const addComment = async (req, res) => {
       });
     }
 
+    const task = await Task.findById(taskId).populate("project");
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
     const comment = await Comment.create({
       content,
       task: taskId,
       author: req.user._id,
     });
+
+    req.io.to(task.project.workspace.toString()).emit("commentAdded", comment);
 
     res.status(201).json({
       message: "Comment added successfully",
