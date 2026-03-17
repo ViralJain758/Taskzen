@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getWorkspaces, createWorkspace } from "../services/workspaceService";
 
 interface Workspace {
@@ -12,6 +13,7 @@ interface Workspace {
 function Dashboard() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [name, setName] = useState("");
+  const navigate = useNavigate();
 
   const fetchWorkspaces = async (): Promise<Workspace[]> => {
     try {
@@ -66,7 +68,11 @@ function Dashboard() {
       {/* Workspace List */}
       <div className="grid gap-4">
         {workspaces.map((w) => (
-          <div key={w.workspace._id} className="p-4 border rounded shadow">
+          <div
+            key={w.workspace._id}
+            onClick={() => navigate(`/workspace/${w.workspace._id}`)}
+            className="p-4 border rounded shadow cursor-pointer hover:bg-gray-100"
+          >
             <h2 className="text-lg font-semibold">{w.workspace.name}</h2>
             <p className="text-sm text-gray-500">Role: {w.role}</p>
           </div>
