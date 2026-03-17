@@ -392,6 +392,9 @@ function ProjectPage() {
     [tasks],
   );
 
+  const hasNoTasks = !isLoading && tasks.length === 0;
+  const hasNoAssignees = assignees.length === 0;
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -502,6 +505,11 @@ function ProjectPage() {
           className="rounded-xl border border-gray-300 bg-white p-2 text-sm text-gray-700 md:w-64"
         >
           <option value="">Unassigned</option>
+          {hasNoAssignees && (
+            <option value="" disabled>
+              No members available
+            </option>
+          )}
           {assignees.map((assignee) => (
             <option key={assignee._id} value={assignee._id}>
               {assignee.name} ({assignee.role})
@@ -517,53 +525,74 @@ function ProjectPage() {
         </button>
       </div>
 
+      {hasNoAssignees && (
+        <p className="mb-6 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          No workspace members are available to assign yet. You can still create
+          unassigned tasks.
+        </p>
+      )}
+
       {/* Columns */}
       {isLoading ? (
         <div className="rounded-xl border border-dashed border-gray-300 p-8 text-gray-500">
           Loading tasks...
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-            {columns.map((status) => (
-              <DroppableColumn key={status} status={status}>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-                    {statusLabels[status]}
-                  </h2>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600">
-                    {tasksByColumn[status].length}
-                  </span>
-                </div>
+        <>
+          {hasNoTasks && (
+            <div className="mb-6 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50 p-6 text-center">
+              <h3 className="text-base font-semibold text-indigo-900">
+                No tasks yet
+              </h3>
+              <p className="mt-1 text-sm text-indigo-700">
+                Create your first task above. You can add details, assign it,
+                and then drag it across columns.
+              </p>
+            </div>
+          )}
 
-                <SortableContext
-                  items={tasksByColumn[status].map((task) => task._id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {tasksByColumn[status].map((task) => (
-                    <SortableTaskCard
-                      key={task._id}
-                      task={task}
-                      onAssigneeChange={changeTaskAssignee}
-                      assignees={assignees}
-                      isUpdating={updatingTaskId === task._id}
-                    />
-                  ))}
-                </SortableContext>
-
-                {tasksByColumn[status].length === 0 && (
-                  <div className="rounded-lg border border-dashed border-gray-300 bg-white/70 p-3 text-center text-xs text-gray-500">
-                    Drop task here
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+              {columns.map((status) => (
+                <DroppableColumn key={status} status={status}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                      {statusLabels[status]}
+                    </h2>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600">
+                      {tasksByColumn[status].length}
+                    </span>
                   </div>
-                )}
-              </DroppableColumn>
-            ))}
-          </div>
-        </DndContext>
+
+                  <SortableContext
+                    items={tasksByColumn[status].map((task) => task._id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {tasksByColumn[status].map((task) => (
+                      <SortableTaskCard
+                        key={task._id}
+                        task={task}
+                        onAssigneeChange={changeTaskAssignee}
+                        assignees={assignees}
+                        isUpdating={updatingTaskId === task._id}
+                      />
+                    ))}
+                  </SortableContext>
+
+                  {tasksByColumn[status].length === 0 && (
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-white/70 p-3 text-center text-xs text-gray-500">
+                      Drop task here
+                    </div>
+                  )}
+                </DroppableColumn>
+              ))}
+            </div>
+          </DndContext>
+        </>
       )}
     </div>
   );

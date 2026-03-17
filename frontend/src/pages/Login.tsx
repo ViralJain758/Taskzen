@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 function Login() {
   const navigate = useNavigate();
   const auth = useContext(AuthContext);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
@@ -21,8 +22,10 @@ function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       const res = await api.post("/auth/login", form);
 
       const { token, user } = res.data;
@@ -44,6 +47,8 @@ function Login() {
       }
 
       toast.error("Something went wrong while logging in");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -71,7 +76,13 @@ function Login() {
           onChange={handleChange}
         />
 
-        <button className="w-full bg-indigo-500 text-white p-2">Login</button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded bg-indigo-500 p-2 text-white disabled:cursor-not-allowed disabled:bg-indigo-300"
+        >
+          {isSubmitting ? "Logging in..." : "Login"}
+        </button>
       </form>
     </div>
   );

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 
 function Register() {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -20,8 +21,10 @@ function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       await api.post("/auth/register", form);
       toast.success("Registration successful");
       navigate("/login");
@@ -32,6 +35,8 @@ function Register() {
       }
 
       toast.error("Something went wrong while registering");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,8 +72,12 @@ function Register() {
           onChange={handleChange}
         />
 
-        <button className="w-full bg-indigo-500 text-white p-2">
-          Register
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded bg-indigo-500 p-2 text-white disabled:cursor-not-allowed disabled:bg-indigo-300"
+        >
+          {isSubmitting ? "Creating account..." : "Register"}
         </button>
       </form>
     </div>
