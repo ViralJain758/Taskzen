@@ -5,16 +5,38 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import WorkspacePage from "./pages/WorkspacePage.tsx";
 import ProjectPage from "./pages/ProjectPage.tsx";
+import MainLayout from "./layouts/MainLayout";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route
+          path="/"
+          element={
+            <MainLayout>
+              <Dashboard />
+            </MainLayout>
+          }
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/workspaces/:workspaceId" element={<WorkspacePage />} />
-        <Route path="/project/:projectId" element={<ProjectPage />} />
+        <Route
+          path="/workspace/:workspaceId"
+          element={
+            <MainLayout>
+              <WorkspacePage />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/project/:projectId"
+          element={
+            <MainLayout>
+              <ProjectPage />
+            </MainLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
