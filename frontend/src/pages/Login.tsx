@@ -39,7 +39,7 @@ function Login() {
       setAuthToken(token);
       toast.success("Login successful");
 
-      navigate("/");
+      navigate("/dashboard");
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
         toast.error(error.response?.data?.message || "Invalid credentials");

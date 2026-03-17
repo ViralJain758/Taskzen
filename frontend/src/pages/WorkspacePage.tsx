@@ -34,6 +34,7 @@ function WorkspacePage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -104,12 +105,17 @@ function WorkspacePage() {
 
   const handleCreate = async () => {
     const projectName = name.trim();
+    const projectDescription = description.trim();
     if (!projectName || !workspaceId || isCreating) return;
 
     try {
       setIsCreating(true);
-      await createProject(workspaceId, { name: projectName });
+      await createProject(workspaceId, {
+        name: projectName,
+        description: projectDescription || undefined,
+      });
       setName("");
+      setDescription("");
       const data = await fetchProjects();
       setProjects(data);
       toast.success("Project created");
@@ -228,6 +234,78 @@ function WorkspacePage() {
         Select a project to open its task board, or create a new one below.
       </p>
 
+      <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 md:flex-row md:items-start md:p-4">
+        <div className="w-full max-w-md space-y-2">
+          <input
+            type="text"
+            placeholder="New project"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                void handleCreate();
+              }
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+          />
+          <textarea
+            placeholder="Project description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleCreate}
+          className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+          disabled={!name.trim() || !workspaceId || isCreating}
+        >
+          {isCreating ? "Creating..." : "Create Project"}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+          Loading projects...
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map((p) => (
+            <div
+              key={p._id}
+              onClick={() => navigate(`/project/${p._id}`)}
+              className="surface-card cursor-pointer rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-900">{p.name}</h2>
+                {canManageMembers && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete({ id: p._id, name: p.name });
+                    }}
+                    className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                {p.description || "No description yet"}
+              </p>
+            </div>
+          ))}
+          {projects.length === 0 && (
+            <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
+              No projects yet. Create your first project above.
+            </p>
+          )}
+        </div>
+      )}
+
       <section className="surface-card rounded-2xl p-4 md:p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-slate-900">Members</h2>
@@ -331,69 +409,6 @@ function WorkspacePage() {
           </div>
         )}
       </section>
-
-      <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 md:flex-row md:items-center md:p-4">
-        <input
-          type="text"
-          placeholder="New project"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void handleCreate();
-            }
-          }}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 md:max-w-md"
-        />
-        <button
-          type="button"
-          onClick={handleCreate}
-          className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-          disabled={!name.trim() || !workspaceId || isCreating}
-        >
-          {isCreating ? "Creating..." : "Create Project"}
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-          Loading projects...
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((p) => (
-            <div
-              key={p._id}
-              onClick={() => navigate(`/project/${p._id}`)}
-              className="surface-card cursor-pointer rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-900">{p.name}</h2>
-                {canManageMembers && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete({ id: p._id, name: p.name });
-                    }}
-                    className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-slate-500">
-                {p.description || "No description yet"}
-              </p>
-            </div>
-          ))}
-          {projects.length === 0 && (
-            <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
-              No projects yet. Create your first project above.
-            </p>
-          )}
-        </div>
-      )}
 
       <ConfirmDialog
         open={Boolean(projectToDelete)}
