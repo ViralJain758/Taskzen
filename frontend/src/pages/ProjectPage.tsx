@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   getTasks,
   createTask,
   getProjectAssignees,
   type ProjectAssignee,
+  type TaskComment,
   updateTaskAssignee,
   updateTaskStatus,
   deleteTask,
+  getTaskComments,
+  addTaskComment,
+  deleteTaskComment,
 } from "../services/taskService";
 import socket, { joinProjectRoom, leaveProjectRoom } from "../sockets/socket";
 import toast from "react-hot-toast";
@@ -64,6 +68,18 @@ interface TaskDeletedEvent {
   taskId: string;
 }
 
+interface CommentCreatedEvent {
+  projectId: string;
+  taskId: string;
+  comment: TaskComment;
+}
+
+interface CommentDeletedEvent {
+  projectId: string;
+  taskId: string;
+  commentId: string;
+}
+
 interface PendingTaskDelete {
   id: string;
   title: string;
@@ -88,6 +104,16 @@ const SortableTaskCard = ({
   onDelete,
   assignees,
   isUpdating,
+  comments,
+  commentsExpanded,
+  commentsLoading,
+  addingComment,
+  deletingCommentId,
+  currentUserId,
+  canModerateComments,
+  onToggleComments,
+  onAddComment,
+  onDeleteComment,
 }: {
   task: Task;
   onAssigneeChange: (
@@ -97,7 +123,19 @@ const SortableTaskCard = ({
   onDelete: (taskId: string) => void;
   assignees: ProjectAssignee[];
   isUpdating: boolean;
+  comments: TaskComment[];
+  commentsExpanded: boolean;
+  commentsLoading: boolean;
+  addingComment: boolean;
+  deletingCommentId: string | null;
+  currentUserId: string | null;
+  canModerateComments: boolean;
+  onToggleComments: (taskId: string) => void;
+  onAddComment: (taskId: string, content: string) => Promise<void>;
+  onDeleteComment: (taskId: string, commentId: string) => Promise<void>;
 }) => {
+  const [newComment, setNewComment] = useState("");
+
   const {
     attributes,
     listeners,
@@ -173,6 +211,88 @@ const SortableTaskCard = ({
           </option>
         ))}
       </select>
+
+      <button
+        type="button"
+        onClick={() => onToggleComments(task._id)}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
+        className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+      >
+        {commentsExpanded
+          ? "Hide comments"
+          : `Show comments (${comments.length})`}
+      </button>
+
+      {commentsExpanded && (
+        <div
+          className="mt-2 rounded-lg border border-slate-200 bg-white p-2"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <div className="mb-2 flex gap-2">
+            <input
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Write a comment"
+              className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+            />
+            <button
+              type="button"
+              disabled={!newComment.trim() || addingComment}
+              onClick={() => {
+                void onAddComment(task._id, newComment.trim()).then(() => {
+                  setNewComment("");
+                });
+              }}
+              className="rounded-md bg-sky-600 px-2 py-1 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {addingComment ? "..." : "Add"}
+            </button>
+          </div>
+
+          {commentsLoading ? (
+            <p className="text-xs text-slate-500">Loading comments...</p>
+          ) : comments.length === 0 ? (
+            <p className="text-xs text-slate-500">No comments yet.</p>
+          ) : (
+            <div className="max-h-32 space-y-2 overflow-auto">
+              {comments.map((comment) => {
+                const canDeleteComment =
+                  canModerateComments || comment.author._id === currentUserId;
+
+                return (
+                  <div
+                    key={comment._id}
+                    className="rounded-md border border-slate-200 bg-slate-50 p-2"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold text-slate-700">
+                        {comment.author.name}
+                      </p>
+                      {canDeleteComment && (
+                        <button
+                          type="button"
+                          disabled={deletingCommentId === comment._id}
+                          onClick={() => {
+                            void onDeleteComment(task._id, comment._id);
+                          }}
+                          className="text-[11px] font-semibold text-rose-700 transition hover:text-rose-800 disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-700">{comment.content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -216,6 +336,43 @@ function ProjectPage() {
   const [taskToDelete, setTaskToDelete] = useState<PendingTaskDelete | null>(
     null,
   );
+  const [commentsByTask, setCommentsByTask] = useState<
+    Record<string, TaskComment[]>
+  >({});
+  const [expandedComments, setExpandedComments] = useState<
+    Record<string, boolean>
+  >({});
+  const [loadingCommentsTaskId, setLoadingCommentsTaskId] = useState<
+    string | null
+  >(null);
+  const [addingCommentTaskId, setAddingCommentTaskId] = useState<string | null>(
+    null,
+  );
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+    null,
+  );
+  const preloadedCommentTaskIdsRef = useRef<Set<string>>(new Set());
+
+  const currentUserId = useMemo(() => {
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (!savedUser) return null;
+      const parsed = JSON.parse(savedUser) as { _id?: string };
+      return parsed._id || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const currentUserWorkspaceRole = useMemo(() => {
+    if (!currentUserId) return null;
+    const me = assignees.find((assignee) => assignee._id === currentUserId);
+    return me?.role || null;
+  }, [assignees, currentUserId]);
+
+  const canModerateComments =
+    currentUserWorkspaceRole === "owner" ||
+    currentUserWorkspaceRole === "admin";
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -243,6 +400,57 @@ function ProjectPage() {
       setTasks(data);
     });
   }, [fetchTasks]);
+
+  useEffect(() => {
+    const taskIdsInBoard = new Set(tasks.map((task) => task._id));
+
+    // Keep preloaded cache aligned with current task set to avoid stale ids.
+    for (const preloadedId of preloadedCommentTaskIdsRef.current) {
+      if (!taskIdsInBoard.has(preloadedId)) {
+        preloadedCommentTaskIdsRef.current.delete(preloadedId);
+      }
+    }
+
+    const taskIdsToPreload = tasks
+      .map((task) => task._id)
+      .filter(
+        (taskId) =>
+          !taskId.startsWith("temp-") &&
+          !preloadedCommentTaskIdsRef.current.has(taskId),
+      );
+
+    if (taskIdsToPreload.length === 0) return;
+
+    let cancelled = false;
+
+    const preloadCommentCounts = async () => {
+      const loadedEntries = await Promise.all(
+        taskIdsToPreload.map(async (taskId) => {
+          const comments = await getTaskComments(taskId);
+          return { taskId, comments };
+        }),
+      );
+
+      if (cancelled) return;
+
+      setCommentsByTask((prev) => {
+        const next = { ...prev };
+
+        loadedEntries.forEach(({ taskId, comments }) => {
+          next[taskId] = comments;
+          preloadedCommentTaskIdsRef.current.add(taskId);
+        });
+
+        return next;
+      });
+    };
+
+    void preloadCommentCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tasks]);
 
   useEffect(() => {
     const fetchAssignees = async () => {
@@ -411,6 +619,88 @@ function ProjectPage() {
     setTaskToDelete({ id: task._id, title: task.title });
   };
 
+  const fetchCommentsForTask = async (taskId: string) => {
+    try {
+      setLoadingCommentsTaskId(taskId);
+      const comments = await getTaskComments(taskId);
+      setCommentsByTask((prev) => ({
+        ...prev,
+        [taskId]: comments,
+      }));
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load comments");
+    } finally {
+      setLoadingCommentsTaskId(null);
+    }
+  };
+
+  const toggleComments = (taskId: string) => {
+    setExpandedComments((prev) => {
+      const nextOpen = !prev[taskId];
+
+      if (nextOpen && !prev[taskId] && !commentsByTask[taskId]) {
+        void fetchCommentsForTask(taskId);
+      }
+
+      return {
+        ...prev,
+        [taskId]: nextOpen,
+      };
+    });
+  };
+
+  const handleAddComment = async (taskId: string, content: string) => {
+    if (!content.trim()) return;
+
+    try {
+      setAddingCommentTaskId(taskId);
+      const res = await addTaskComment(taskId, content.trim());
+      if (res.comment) {
+        setCommentsByTask((prev) => {
+          const existing = prev[taskId] || [];
+          const alreadyExists = existing.some(
+            (comment) => comment._id === res.comment._id,
+          );
+
+          if (alreadyExists) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [taskId]: [res.comment, ...existing],
+          };
+        });
+      }
+      toast.success("Comment added");
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to add comment");
+    } finally {
+      setAddingCommentTaskId(null);
+    }
+  };
+
+  const handleDeleteComment = async (taskId: string, commentId: string) => {
+    try {
+      setDeletingCommentId(commentId);
+      await deleteTaskComment(commentId);
+      setCommentsByTask((prev) => ({
+        ...prev,
+        [taskId]: (prev[taskId] || []).filter(
+          (comment) => comment._id !== commentId,
+        ),
+      }));
+      toast.success("Comment deleted");
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to delete comment");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   const handleDeleteTask = async () => {
     if (!taskToDelete) return;
 
@@ -421,6 +711,12 @@ function ProjectPage() {
 
     try {
       await deleteTask(taskToDelete.id);
+      setCommentsByTask((prev) => {
+        const next = { ...prev };
+        delete next[taskToDelete.id];
+        return next;
+      });
+      preloadedCommentTaskIdsRef.current.delete(taskToDelete.id);
       toast.success("Task deleted");
       setTaskToDelete(null);
     } catch (error) {
@@ -511,11 +807,48 @@ function ProjectPage() {
     const handleTaskDeleted = (event: TaskDeletedEvent) => {
       if (event.projectId !== projectId) return;
       setTasks((prev) => prev.filter((t) => t._id !== event.taskId));
+      setCommentsByTask((prev) => {
+        const next = { ...prev };
+        delete next[event.taskId];
+        return next;
+      });
+      preloadedCommentTaskIdsRef.current.delete(event.taskId);
+    };
+
+    const handleCommentCreated = (event: CommentCreatedEvent) => {
+      if (event.projectId !== projectId) return;
+      setCommentsByTask((prev) => {
+        if (!prev[event.taskId]) return prev;
+        const exists = prev[event.taskId].some(
+          (comment) => comment._id === event.comment._id,
+        );
+        if (exists) return prev;
+
+        return {
+          ...prev,
+          [event.taskId]: [event.comment, ...prev[event.taskId]],
+        };
+      });
+    };
+
+    const handleCommentDeleted = (event: CommentDeletedEvent) => {
+      if (event.projectId !== projectId) return;
+      setCommentsByTask((prev) => {
+        if (!prev[event.taskId]) return prev;
+        return {
+          ...prev,
+          [event.taskId]: prev[event.taskId].filter(
+            (comment) => comment._id !== event.commentId,
+          ),
+        };
+      });
     };
 
     socket.on("project:task_created", handleTaskCreated);
     socket.on("project:task_updated", handleTaskUpdated);
     socket.on("project:task_deleted", handleTaskDeleted);
+    socket.on("project:comment_created", handleCommentCreated);
+    socket.on("project:comment_deleted", handleCommentDeleted);
 
     return () => {
       leaveProjectRoom(projectId);
@@ -523,6 +856,8 @@ function ProjectPage() {
       socket.off("project:task_created", handleTaskCreated);
       socket.off("project:task_updated", handleTaskUpdated);
       socket.off("project:task_deleted", handleTaskDeleted);
+      socket.off("project:comment_created", handleCommentCreated);
+      socket.off("project:comment_deleted", handleCommentDeleted);
     };
   }, [projectId]);
 
@@ -641,6 +976,16 @@ function ProjectPage() {
                         onDelete={requestDeleteTask}
                         assignees={assignees}
                         isUpdating={updatingTaskId === task._id}
+                        comments={commentsByTask[task._id] || []}
+                        commentsExpanded={Boolean(expandedComments[task._id])}
+                        commentsLoading={loadingCommentsTaskId === task._id}
+                        addingComment={addingCommentTaskId === task._id}
+                        deletingCommentId={deletingCommentId}
+                        currentUserId={currentUserId}
+                        canModerateComments={canModerateComments}
+                        onToggleComments={toggleComments}
+                        onAddComment={handleAddComment}
+                        onDeleteComment={handleDeleteComment}
                       />
                     ))}
                   </SortableContext>

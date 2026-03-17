@@ -37,3 +37,22 @@ export const removeWorkspaceMember = async (
   );
   return res.data;
 };
+
+export const updateWorkspaceMemberRole = async (
+  workspaceId: string,
+  memberId: string,
+  role: "admin" | "member",
+) => {
+  const res = await api.patch(
+    `/workspaces/${workspaceId}/members/${memberId}/role`,
+    {
+      role,
+    },
+  );
+  return res.data;
+};
+
+export const leaveWorkspace = async (workspaceId: string) => {
+  const res = await api.delete(`/workspaces/${workspaceId}/leave`);
+  return res.data;
+};

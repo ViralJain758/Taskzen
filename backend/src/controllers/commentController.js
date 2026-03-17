@@ -1,11 +1,15 @@
 import Comment from "../models/Comment.js";
+import Task from "../models/Task.js";
+import Notification from "../models/Notification.js";
+import Membership from "../models/Membership.js";
 
 export const addComment = async (req, res) => {
   try {
     const { taskId } = req.params;
     const { content } = req.body;
+    const commentContent = content?.trim();
 
-    if (!content) {
+    if (!commentContent) {
       return res.status(400).json({
         message: "Comment content is required",
       });
@@ -20,12 +24,23 @@ export const addComment = async (req, res) => {
     }
 
     const comment = await Comment.create({
-      content,
+      content: commentContent,
       task: taskId,
       author: req.user._id,
     });
 
-    req.io.to(task.project.workspace.toString()).emit("commentAdded", comment);
+    const populatedComment = await Comment.findById(comment._id).populate(
+      "author",
+      "name email",
+    );
+
+    req.io
+      .to(`project:${task.project._id.toString()}`)
+      .emit("project:comment_created", {
+        projectId: task.project._id.toString(),
+        taskId,
+        comment: populatedComment,
+      });
 
     if (task.createdBy.toString() !== req.user._id.toString()) {
       await Notification.create({
@@ -41,7 +56,7 @@ export const addComment = async (req, res) => {
 
     res.status(201).json({
       message: "Comment added successfully",
-      comment,
+      comment: populatedComment,
     });
   } catch (error) {
     res.status(500).json({
@@ -72,7 +87,13 @@ export const deleteComment = async (req, res) => {
   try {
     const { commentId } = req.params;
 
-    const comment = await Comment.findById(commentId);
+    const comment = await Comment.findById(commentId).populate({
+      path: "task",
+      populate: {
+        path: "project",
+        select: "workspace",
+      },
+    });
 
     if (!comment) {
       return res.status(404).json({
@@ -80,10 +101,34 @@ export const deleteComment = async (req, res) => {
       });
     }
 
+    const isAuthor = comment.author.toString() === req.user._id.toString();
+
+    if (!isAuthor) {
+      const membership = await Membership.findOne({
+        workspace: comment.task.project.workspace,
+        user: req.user._id,
+      });
+
+      if (!membership || !["owner", "admin"].includes(membership.role)) {
+        return res.status(403).json({
+          message: "You do not have permission to delete this comment",
+        });
+      }
+    }
+
     await comment.deleteOne();
+
+    req.io
+      .to(`project:${comment.task.project._id.toString()}`)
+      .emit("project:comment_deleted", {
+        projectId: comment.task.project._id.toString(),
+        taskId: comment.task._id.toString(),
+        commentId,
+      });
 
     res.json({
       message: "Comment deleted successfully",
+      commentId,
     });
   } catch (error) {
     res.status(500).json({

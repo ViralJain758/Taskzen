@@ -119,6 +119,62 @@ export const getWorkspaceMembers = async (req, res) => {
       members,
       requesterRole: req.membership.role,
       canManageMembers: ["owner", "admin"].includes(req.membership.role),
+      canManageRoles: req.membership.role === "owner",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const updateWorkspaceMemberRole = async (req, res) => {
+  try {
+    const { workspaceId, memberId } = req.params;
+    const { role } = req.body;
+
+    if (!["admin", "member"].includes(role)) {
+      return res.status(400).json({
+        message: "Role must be either admin or member",
+      });
+    }
+
+    if (req.membership.role !== "owner") {
+      return res.status(403).json({
+        message: "Only owner can update member roles",
+      });
+    }
+
+    const targetMembership = await Membership.findOne({
+      workspace: workspaceId,
+      user: memberId,
+    }).populate("user", "name email");
+
+    if (!targetMembership) {
+      return res.status(404).json({
+        message: "Member not found in this workspace",
+      });
+    }
+
+    if (targetMembership.role === "owner") {
+      return res.status(400).json({
+        message: "Workspace owner role cannot be changed",
+      });
+    }
+
+    targetMembership.role = role;
+    await targetMembership.save();
+
+    res.json({
+      message: "Member role updated successfully",
+      member: {
+        user: {
+          _id: targetMembership.user._id,
+          name: targetMembership.user.name,
+          email: targetMembership.user.email,
+        },
+        role: targetMembership.role,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -158,6 +214,31 @@ export const removeWorkspaceMember = async (req, res) => {
 
     res.json({
       message: "Member removed successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const leaveWorkspace = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    if (req.membership.role === "owner") {
+      return res.status(400).json({
+        message: "Workspace owner cannot leave the workspace",
+      });
+    }
+
+    await Membership.deleteOne({
+      workspace: workspaceId,
+      user: req.user._id,
+    });
+
+    res.json({
+      message: "You left the workspace successfully",
     });
   } catch (error) {
     res.status(500).json({

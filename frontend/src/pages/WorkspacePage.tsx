@@ -9,6 +9,7 @@ import {
   getWorkspaceMembers,
   inviteWorkspaceMember,
   removeWorkspaceMember,
+  updateWorkspaceMemberRole,
 } from "../services/workspaceService";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -39,8 +40,12 @@ function WorkspacePage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
+  const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<
+    string | null
+  >(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [canManageMembers, setCanManageMembers] = useState(false);
+  const [canManageRoles, setCanManageRoles] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
   const [memberToRemove, setMemberToRemove] = useState<{
@@ -84,6 +89,7 @@ function WorkspacePage() {
       const data = await getWorkspaceMembers(workspaceId);
       setMembers(data.members || []);
       setCanManageMembers(Boolean(data.canManageMembers));
+      setCanManageRoles(Boolean(data.canManageRoles));
     } catch (error) {
       console.error(error);
       toast.error("Failed to load workspace members");
@@ -118,6 +124,10 @@ function WorkspacePage() {
   const handleDeleteProject = async () => {
     if (!workspaceId) return;
     if (!projectToDelete) return;
+    if (!canManageMembers) {
+      toast.error("Only admin and owner can delete projects");
+      return;
+    }
 
     try {
       setIsDeleting(true);
@@ -175,6 +185,32 @@ function WorkspacePage() {
       toast.error("Unable to remove member");
     } finally {
       setIsRemovingMember(false);
+    }
+  };
+
+  const handleChangeMemberRole = async (
+    memberId: string,
+    nextRole: "admin" | "member",
+  ) => {
+    if (!workspaceId) return;
+
+    const previous = members;
+    setUpdatingRoleMemberId(memberId);
+    setMembers((prev) =>
+      prev.map((member) =>
+        member.user._id === memberId ? { ...member, role: nextRole } : member,
+      ),
+    );
+
+    try {
+      await updateWorkspaceMemberRole(workspaceId, memberId, nextRole);
+      toast.success("Member role updated");
+    } catch (error) {
+      console.error(error);
+      setMembers(previous);
+      toast.error("Unable to update member role");
+    } finally {
+      setUpdatingRoleMemberId(null);
     }
   };
 
@@ -255,9 +291,26 @@ function WorkspacePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                    {member.role}
-                  </span>
+                  {canManageRoles && member.role !== "owner" ? (
+                    <select
+                      value={member.role}
+                      onChange={(e) =>
+                        void handleChangeMemberRole(
+                          member.user._id,
+                          e.target.value as "admin" | "member",
+                        )
+                      }
+                      disabled={updatingRoleMemberId === member.user._id}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      {member.role}
+                    </span>
+                  )}
                   {canManageMembers && member.role !== "owner" && (
                     <button
                       type="button"
@@ -316,16 +369,18 @@ function WorkspacePage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-lg font-bold text-slate-900">{p.name}</h2>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setProjectToDelete({ id: p._id, name: p.name });
-                  }}
-                  className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                >
-                  Delete
-                </button>
+                {canManageMembers && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete({ id: p._id, name: p.name });
+                    }}
+                    className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
               <p className="mt-1 text-sm text-slate-500">
                 {p.description || "No description yet"}

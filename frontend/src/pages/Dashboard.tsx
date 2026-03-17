@@ -4,6 +4,7 @@ import {
   getWorkspaces,
   createWorkspace,
   deleteWorkspace,
+  leaveWorkspace,
 } from "../services/workspaceService";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -22,7 +23,12 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [workspaceToLeave, setWorkspaceToLeave] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -85,6 +91,25 @@ function Dashboard() {
     }
   };
 
+  const handleLeaveWorkspace = async () => {
+    if (!workspaceToLeave) return;
+
+    try {
+      setIsLeaving(true);
+      await leaveWorkspace(workspaceToLeave.id);
+      setWorkspaces((prev) =>
+        prev.filter((w) => w.workspace._id !== workspaceToLeave.id),
+      );
+      toast.success("You left the workspace");
+      setWorkspaceToLeave(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to leave workspace");
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
   return (
     <div className="fade-up space-y-5">
       <div>
@@ -137,21 +162,37 @@ function Dashboard() {
                 <h2 className="text-lg font-bold text-slate-900">
                   {w.workspace.name}
                 </h2>
-                {w.role === "owner" && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWorkspaceToDelete({
-                        id: w.workspace._id,
-                        name: w.workspace.name,
-                      });
-                    }}
-                    className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                  >
-                    Delete
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {w.role === "owner" ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWorkspaceToDelete({
+                          id: w.workspace._id,
+                          name: w.workspace.name,
+                        });
+                      }}
+                      className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWorkspaceToLeave({
+                          id: w.workspace._id,
+                          name: w.workspace.name,
+                        });
+                      }}
+                      className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                    >
+                      Leave
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Role: {w.role}
@@ -176,6 +217,18 @@ function Dashboard() {
         onClose={() => setWorkspaceToDelete(null)}
         onConfirm={() => {
           void handleDeleteWorkspace();
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(workspaceToLeave)}
+        title="Leave workspace?"
+        message={`You will lose access to "${workspaceToLeave?.name || ""}" unless someone invites you again.`}
+        confirmLabel="Leave workspace"
+        isProcessing={isLeaving}
+        onClose={() => setWorkspaceToLeave(null)}
+        onConfirm={() => {
+          void handleLeaveWorkspace();
         }}
       />
     </div>

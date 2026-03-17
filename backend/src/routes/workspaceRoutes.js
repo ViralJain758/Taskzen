@@ -7,6 +7,8 @@ import {
   inviteMember,
   getWorkspaceMembers,
   removeWorkspaceMember,
+  updateWorkspaceMemberRole,
+  leaveWorkspace,
   deleteWorkspace,
 } from "../controllers/workspaceController.js";
 
@@ -37,6 +39,18 @@ router.delete(
   protect,
   authorizeWorkspaceRole(["owner", "admin"]),
   removeWorkspaceMember,
+);
+router.patch(
+  "/:workspaceId/members/:memberId/role",
+  protect,
+  authorizeWorkspaceRole(["owner", "admin"]),
+  updateWorkspaceMemberRole,
+);
+router.delete(
+  "/:workspaceId/leave",
+  protect,
+  authorizeWorkspaceRole(["admin", "member"]),
+  leaveWorkspace,
 );
 
 export default router;
