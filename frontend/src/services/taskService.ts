@@ -14,7 +14,7 @@ export const getTasks = async (projectId: string) => {
 
 export const createTask = async (
   projectId: string,
-  data: { title: string; assignee?: string },
+  data: { title: string; description?: string; assignee?: string | null },
 ) => {
   const res = await api.post(`/tasks/${projectId}`, data);
   return res.data;
@@ -32,7 +32,10 @@ export const updateTaskStatus = async (taskId: string, status: string) => {
   return res.data;
 };
 
-export const updateTaskAssignee = async (taskId: string, assignee?: string) => {
+export const updateTaskAssignee = async (
+  taskId: string,
+  assignee: string | null,
+) => {
   const res = await api.patch(`/tasks/${taskId}`, { assignee });
   return res.data;
 };

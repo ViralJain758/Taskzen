@@ -33,7 +33,13 @@ type TaskStatus = "todo" | "in_progress" | "completed";
 interface Task {
   _id: string;
   title: string;
+  description?: string;
   status: TaskStatus;
+  createdBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
   assignee?: {
     _id: string;
     name: string;
@@ -76,7 +82,10 @@ const SortableTaskCard = ({
   isUpdating,
 }: {
   task: Task;
-  onAssigneeChange: (taskId: string, assigneeId?: string) => Promise<void>;
+  onAssigneeChange: (
+    taskId: string,
+    assigneeId: string | null,
+  ) => Promise<void>;
   assignees: ProjectAssignee[];
   isUpdating: boolean;
 }) => {
@@ -106,6 +115,16 @@ const SortableTaskCard = ({
         <p className="text-sm font-medium text-gray-900">{task.title}</p>
       </div>
 
+      {task.description && (
+        <p className="mb-2 text-xs text-gray-600">{task.description}</p>
+      )}
+
+      {task.createdBy && (
+        <p className="mb-2 text-xs text-gray-500">
+          Created by: {task.createdBy.name}
+        </p>
+      )}
+
       {task.assignee && (
         <p className="mb-2 text-xs text-gray-500">
           Assigned to: {task.assignee.name}
@@ -115,7 +134,7 @@ const SortableTaskCard = ({
       <select
         value={task.assignee?._id || ""}
         onChange={(e) =>
-          void onAssigneeChange(task._id, e.target.value || undefined)
+          void onAssigneeChange(task._id, e.target.value || null)
         }
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -163,6 +182,7 @@ function ProjectPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -213,14 +233,37 @@ function ProjectPage() {
 
   const handleCreate = async () => {
     const taskTitle = title.trim();
+    const taskDescription = description.trim();
     if (!taskTitle || !projectId || isCreating) return;
+
+    let optimisticCreator: Task["createdBy"];
+    try {
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser) as {
+          _id: string;
+          name: string;
+          email: string;
+        };
+
+        optimisticCreator = {
+          _id: parsed._id,
+          name: parsed.name,
+          email: parsed.email,
+        };
+      }
+    } catch {
+      optimisticCreator = undefined;
+    }
 
     const tempId = `temp-${Date.now()}`;
 
     const optimisticTask: Task = {
       _id: tempId,
       title: taskTitle,
+      description: taskDescription || undefined,
       status: "todo",
+      createdBy: optimisticCreator,
     };
 
     setTasks((prev) => [optimisticTask, ...prev]);
@@ -230,6 +273,7 @@ function ProjectPage() {
     try {
       const res = await createTask(projectId, {
         title: taskTitle,
+        description: taskDescription || undefined,
         assignee: assigneeId || undefined,
       });
 
@@ -243,6 +287,7 @@ function ProjectPage() {
       const freshTasks = await fetchTasks();
       setTasks(freshTasks);
       setAssigneeId("");
+      setDescription("");
       toast.success("Task created");
     } catch (error) {
       console.error(error);
@@ -285,10 +330,12 @@ function ProjectPage() {
 
   const changeTaskAssignee = async (
     taskId: string,
-    nextAssigneeId?: string,
+    nextAssigneeId: string | null,
   ) => {
     const previous = tasks;
-    const selectedAssignee = assignees.find((a) => a._id === nextAssigneeId);
+    const selectedAssignee = nextAssigneeId
+      ? assignees.find((a) => a._id === nextAssigneeId)
+      : undefined;
 
     setUpdatingTaskId(taskId);
     setTasks((prev) =>
@@ -429,17 +476,26 @@ function ProjectPage() {
 
       {/* Create Task */}
       <div className="mb-6 flex flex-col gap-2 md:flex-row">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="New task"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void handleCreate();
-            }
-          }}
-          className="w-full rounded-xl border border-gray-300 bg-white p-2 md:max-w-md"
-        />
+        <div className="flex w-full max-w-md flex-col gap-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Task title"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                void handleCreate();
+              }
+            }}
+            className="w-full rounded-xl border border-gray-300 bg-white p-2"
+          />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            rows={2}
+            className="w-full resize-none rounded-xl border border-gray-300 bg-white p-2 text-sm"
+          />
+        </div>
         <select
           value={assigneeId}
           onChange={(e) => setAssigneeId(e.target.value)}

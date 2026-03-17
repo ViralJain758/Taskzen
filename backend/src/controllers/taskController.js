@@ -32,9 +32,13 @@ export const createTask = async (req, res) => {
       createdBy: req.user._id,
     });
 
+    const populatedTask = await Task.findById(task._id)
+      .populate("assignee", "name email")
+      .populate("createdBy", "name email");
+
     req.io.to(`project:${projectId}`).emit("project:task_created", {
       projectId,
-      task,
+      task: populatedTask,
     });
 
     if (assignee) {
@@ -51,7 +55,7 @@ export const createTask = async (req, res) => {
 
     res.status(201).json({
       message: "Task created successfully",
-      task,
+      task: populatedTask,
     });
   } catch (error) {
     res.status(500).json({
@@ -125,11 +129,10 @@ export const updateTaskStatus = async (req, res) => {
       });
     }
 
-    const task = await Task.findByIdAndUpdate(
-      taskId,
-      { status },
-      { new: true },
-    ).populate("project");
+    const task = await Task.findByIdAndUpdate(taskId, { status }, { new: true })
+      .populate("project")
+      .populate("assignee", "name email")
+      .populate("createdBy", "name email");
 
     if (!task) {
       return res.status(404).json({
@@ -159,7 +162,12 @@ export const updateTask = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const updatedTask = await Task.findByIdAndUpdate(taskId, req.body, {
+    const updates = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(updates, "assignee")) {
+      updates.assignee = updates.assignee || null;
+    }
+
+    const updatedTask = await Task.findByIdAndUpdate(taskId, updates, {
       new: true,
     })
       .populate("project")
