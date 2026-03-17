@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getWorkspaces, createWorkspace } from "../services/workspaceService";
+import toast from "react-hot-toast";
 
 interface Workspace {
   workspace: {
@@ -23,6 +24,7 @@ function Dashboard() {
       return data;
     } catch (error) {
       console.error(error);
+      toast.error("Failed to load workspaces");
       return [];
     } finally {
       setIsLoading(false);
@@ -45,8 +47,10 @@ function Dashboard() {
       setName("");
       const data = await fetchWorkspaces();
       setWorkspaces(data);
+      toast.success("Workspace created");
     } catch (error) {
       console.error(error);
+      toast.error("Unable to create workspace");
     } finally {
       setIsCreating(false);
     }

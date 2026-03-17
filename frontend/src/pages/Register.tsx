@@ -3,6 +3,7 @@ import axios from "axios";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
 import type { ApiErrorResponse } from "../types/api.ts";
+import toast from "react-hot-toast";
 
 function Register() {
   const navigate = useNavigate();
@@ -22,15 +23,15 @@ function Register() {
 
     try {
       await api.post("/auth/register", form);
-      alert("Registered successfully");
+      toast.success("Registration successful");
       navigate("/login");
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
-        alert(error.response?.data?.message || "Error");
+        toast.error(error.response?.data?.message || "Registration failed");
         return;
       }
 
-      alert("Error");
+      toast.error("Something went wrong while registering");
     }
   };
 

@@ -4,6 +4,7 @@ import api, { setAuthToken } from "../services/api";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/auth-context.ts";
 import type { ApiErrorResponse } from "../types/api.ts";
+import toast from "react-hot-toast";
 
 function Login() {
   const navigate = useNavigate();
@@ -33,15 +34,16 @@ function Login() {
       localStorage.setItem("user", JSON.stringify(user));
 
       setAuthToken(token);
+      toast.success("Login successful");
 
       navigate("/");
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
-        alert(error.response?.data?.message || "Error");
+        toast.error(error.response?.data?.message || "Invalid credentials");
         return;
       }
 
-      alert("Error");
+      toast.error("Something went wrong while logging in");
     }
   };
 

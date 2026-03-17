@@ -9,6 +9,7 @@ import {
   updateTaskStatus,
 } from "../services/taskService";
 import socket, { joinProjectRoom, leaveProjectRoom } from "../sockets/socket";
+import toast from "react-hot-toast";
 import {
   closestCorners,
   DndContext,
@@ -182,6 +183,7 @@ function ProjectPage() {
       return data;
     } catch (error) {
       console.error(error);
+      toast.error("Failed to load tasks");
       return [];
     } finally {
       setIsLoading(false);
@@ -202,6 +204,7 @@ function ProjectPage() {
         setAssignees(data);
       } catch (error) {
         console.error(error);
+        toast.error("Failed to load assignees");
       }
     };
 
@@ -240,9 +243,11 @@ function ProjectPage() {
       const freshTasks = await fetchTasks();
       setTasks(freshTasks);
       setAssigneeId("");
+      toast.success("Task created");
     } catch (error) {
       console.error(error);
       setTasks((prev) => prev.filter((t) => t._id !== tempId));
+      toast.error("Unable to create task");
     } finally {
       setIsCreating(false);
     }
@@ -272,6 +277,7 @@ function ProjectPage() {
     } catch (error) {
       console.error(error);
       setTasks(previous);
+      toast.error("Unable to update task status");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -318,6 +324,7 @@ function ProjectPage() {
     } catch (error) {
       console.error(error);
       setTasks(previous);
+      toast.error("Unable to update assignee");
     } finally {
       setUpdatingTaskId(null);
     }

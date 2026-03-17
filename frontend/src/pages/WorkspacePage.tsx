@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getProjects, createProject } from "../services/projectService";
+import toast from "react-hot-toast";
 
 interface Project {
   _id: string;
@@ -24,6 +25,7 @@ function WorkspacePage() {
       return data;
     } catch (error) {
       console.error(error);
+      toast.error("Failed to load projects");
       return [];
     } finally {
       setIsLoading(false);
@@ -46,8 +48,10 @@ function WorkspacePage() {
       setName("");
       const data = await fetchProjects();
       setProjects(data);
+      toast.success("Project created");
     } catch (error) {
       console.error(error);
+      toast.error("Unable to create project");
     } finally {
       setIsCreating(false);
     }
