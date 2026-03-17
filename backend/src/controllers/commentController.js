@@ -27,6 +27,18 @@ export const addComment = async (req, res) => {
 
     req.io.to(task.project.workspace.toString()).emit("commentAdded", comment);
 
+    if (task.createdBy.toString() !== req.user._id.toString()) {
+      await Notification.create({
+        user: task.createdBy,
+        message: "New comment on your task",
+        type: "comment",
+      });
+
+      req.io.to(task.createdBy.toString()).emit("notification", {
+        message: "New comment on your task",
+      });
+    }
+
     res.status(201).json({
       message: "Comment added successfully",
       comment,
