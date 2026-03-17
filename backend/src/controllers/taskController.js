@@ -103,18 +103,6 @@ export const updateTaskStatus = async (req, res) => {
 
     req.io.to(task.project.workspace.toString()).emit("taskUpdated", task);
 
-    if (assignee) {
-      await Notification.create({
-        user: assignee,
-        message: "You were assigned a task",
-        type: "task",
-      });
-
-      req.io.to(assignee.toString()).emit("notification", {
-        message: "You were assigned a task",
-      });
-    }
-
     res.json({
       message: "Task status updated",
       task,
