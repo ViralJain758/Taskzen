@@ -22,6 +22,8 @@ export const createTask = async (req, res) => {
       createdBy: req.user._id,
     });
 
+    req.io.to(project.workspace).emit("taskCreated", task);
+
     res.status(201).json({
       message: "Task created successfully",
       task,
