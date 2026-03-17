@@ -187,7 +187,7 @@ function ProjectPage() {
       </div>
 
       {/* Columns */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-6">
         {columns.map((col) => (
           <div key={col} className="bg-gray-100 p-4 rounded">
             <h2 className="font-semibold mb-2 uppercase">{col}</h2>
@@ -197,7 +197,7 @@ function ProjectPage() {
               .map((task) => (
                 <div
                   key={task._id}
-                  className="bg-white p-2 mb-2 shadow rounded"
+                  className="bg-white p-3 mb-2 rounded-lg shadow hover:shadow-md"
                 >
                   <p>{task.title}</p>
 

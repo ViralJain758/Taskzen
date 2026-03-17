@@ -70,8 +70,8 @@ function Dashboard() {
         {workspaces.map((w) => (
           <div
             key={w.workspace._id}
-            onClick={() => navigate(`/workspaces/${w.workspace._id}`)}
-            className="p-4 border rounded shadow cursor-pointer hover:bg-gray-100"
+            onClick={() => navigate(`/workspace/${w.workspace._id}`)}
+            className="p-5 border rounded-xl shadow hover:shadow-lg cursor-pointer transition"
           >
             <h2 className="text-lg font-semibold">{w.workspace.name}</h2>
             <p className="text-sm text-gray-500">Role: {w.role}</p>
