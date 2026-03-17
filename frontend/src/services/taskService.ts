@@ -39,3 +39,8 @@ export const updateTaskAssignee = async (
   const res = await api.patch(`/tasks/${taskId}`, { assignee });
   return res.data;
 };
+
+export const deleteTask = async (taskId: string) => {
+  const res = await api.delete(`/tasks/${taskId}`);
+  return res.data;
+};

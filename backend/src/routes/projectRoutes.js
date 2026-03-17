@@ -4,6 +4,7 @@ import { authorizeWorkspaceRole } from "../middleware/workspaceRoleMiddleware.js
 import {
   createProject,
   getWorkspaceProjects,
+  deleteProject,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
@@ -20,6 +21,13 @@ router.get(
   protect,
   authorizeWorkspaceRole(["owner", "admin", "member"]),
   getWorkspaceProjects,
+);
+
+router.delete(
+  "/:workspaceId/:projectId",
+  protect,
+  authorizeWorkspaceRole(["owner", "admin"]),
+  deleteProject,
 );
 
 export default router;

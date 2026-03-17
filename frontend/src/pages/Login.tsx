@@ -1,7 +1,7 @@
 import { useState, useContext } from "react";
 import axios from "axios";
 import api, { setAuthToken } from "../services/api";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/auth-context.ts";
 import type { ApiErrorResponse } from "../types/api.ts";
 import toast from "react-hot-toast";
@@ -53,36 +53,56 @@ function Login() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
       <form
         onSubmit={handleSubmit}
-        className="p-6 bg-white shadow rounded w-80"
+        className="surface-card fade-up w-full max-w-md rounded-2xl p-6 md:p-8"
       >
-        <h2 className="text-xl mb-4">Login</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+          Welcome back
+        </p>
+        <h2 className="mb-1 mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+          Sign in
+        </h2>
+        <p className="mb-6 text-sm text-slate-500">
+          Continue to your workspaces and active projects.
+        </p>
 
         <input
           type="email"
           name="email"
           placeholder="Email"
-          className="w-full mb-2 p-2 border"
+          className="mb-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           onChange={handleChange}
+          required
         />
 
         <input
           type="password"
           name="password"
           placeholder="Password"
-          className="w-full mb-2 p-2 border"
+          className="mb-4 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           onChange={handleChange}
+          required
         />
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded bg-indigo-500 p-2 text-white disabled:cursor-not-allowed disabled:bg-indigo-300"
+          className="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isSubmitting ? "Logging in..." : "Login"}
         </button>
+
+        <p className="mt-4 text-center text-sm text-slate-600">
+          New here?{" "}
+          <Link
+            to="/register"
+            className="font-semibold text-sky-700 transition hover:text-sky-800"
+          >
+            Create an account
+          </Link>
+        </p>
       </form>
     </div>
   );

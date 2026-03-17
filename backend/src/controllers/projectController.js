@@ -1,4 +1,5 @@
 import Project from "../models/Project.js";
+import Task from "../models/Task.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -38,6 +39,34 @@ export const getWorkspaceProjects = async (req, res) => {
     }).populate("createdBy", "name email");
 
     res.json(projects);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const deleteProject = async (req, res) => {
+  try {
+    const { workspaceId, projectId } = req.params;
+
+    const project = await Project.findOne({
+      _id: projectId,
+      workspace: workspaceId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    await Task.deleteMany({ project: projectId });
+    await project.deleteOne();
+
+    res.json({
+      message: "Project deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,

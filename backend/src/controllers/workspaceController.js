@@ -1,6 +1,8 @@
 import Workspace from "../models/Workspace.js";
 import Membership from "../models/Membership.js";
 import User from "../models/User.js";
+import Project from "../models/Project.js";
+import Task from "../models/Task.js";
 
 export const createWorkspace = async (req, res) => {
   try {
@@ -86,6 +88,41 @@ export const inviteMember = async (req, res) => {
     res.status(201).json({
       message: "User added to workspace",
       membership,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const deleteWorkspace = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const workspace = await Workspace.findById(workspaceId);
+
+    if (!workspace) {
+      return res.status(404).json({
+        message: "Workspace not found",
+      });
+    }
+
+    const projects = await Project.find({ workspace: workspaceId }).select(
+      "_id",
+    );
+    const projectIds = projects.map((project) => project._id);
+
+    if (projectIds.length > 0) {
+      await Task.deleteMany({ project: { $in: projectIds } });
+      await Project.deleteMany({ _id: { $in: projectIds } });
+    }
+
+    await Membership.deleteMany({ workspace: workspaceId });
+    await workspace.deleteOne();
+
+    res.json({
+      message: "Workspace deleted successfully",
     });
   } catch (error) {
     res.status(500).json({

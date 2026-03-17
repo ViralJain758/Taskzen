@@ -12,3 +12,8 @@ export const createProject = async (
   const res = await api.post(`/projects/${workspaceId}`, data);
   return res.data;
 };
+
+export const deleteProject = async (workspaceId: string, projectId: string) => {
+  const res = await api.delete(`/projects/${workspaceId}/${projectId}`);
+  return res.data;
+};

@@ -7,6 +7,7 @@ import {
   type ProjectAssignee,
   updateTaskAssignee,
   updateTaskStatus,
+  deleteTask,
 } from "../services/taskService";
 import socket, { joinProjectRoom, leaveProjectRoom } from "../sockets/socket";
 import toast from "react-hot-toast";
@@ -27,6 +28,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 type TaskStatus = "todo" | "in_progress" | "completed";
 
@@ -62,6 +64,11 @@ interface TaskDeletedEvent {
   taskId: string;
 }
 
+interface PendingTaskDelete {
+  id: string;
+  title: string;
+}
+
 const columns: TaskStatus[] = ["todo", "in_progress", "completed"];
 const statusLabels: Record<TaskStatus, string> = {
   todo: "To Do",
@@ -70,14 +77,15 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 const statusStyles: Record<TaskStatus, string> = {
-  todo: "bg-amber-50 border-amber-200",
-  in_progress: "bg-sky-50 border-sky-200",
-  completed: "bg-emerald-50 border-emerald-200",
+  todo: "bg-orange-50/80 border-orange-200",
+  in_progress: "bg-sky-50/80 border-sky-200",
+  completed: "bg-emerald-50/80 border-emerald-200",
 };
 
 const SortableTaskCard = ({
   task,
   onAssigneeChange,
+  onDelete,
   assignees,
   isUpdating,
 }: {
@@ -86,6 +94,7 @@ const SortableTaskCard = ({
     taskId: string,
     assigneeId: string | null,
   ) => Promise<void>;
+  onDelete: (taskId: string) => void;
   assignees: ProjectAssignee[];
   isUpdating: boolean;
 }) => {
@@ -107,26 +116,41 @@ const SortableTaskCard = ({
       }}
       {...attributes}
       {...listeners}
-      className={`mb-3 cursor-grab rounded-xl border bg-white p-3 shadow-sm transition active:cursor-grabbing ${
-        isDragging ? "opacity-60 ring-2 ring-indigo-300" : "hover:shadow"
+      className={`surface-card mb-3 cursor-grab rounded-xl p-3 transition active:cursor-grabbing ${
+        isDragging
+          ? "opacity-60 ring-2 ring-sky-300"
+          : "hover:-translate-y-0.5 hover:border-sky-200 hover:shadow"
       }`}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">{task.title}</p>
+        <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+        <button
+          type="button"
+          onClick={() => {
+            void onDelete(task._id);
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+          disabled={isUpdating}
+        >
+          Delete
+        </button>
       </div>
 
       {task.description && (
-        <p className="mb-2 text-xs text-gray-600">{task.description}</p>
+        <p className="mb-2 text-xs text-slate-600">{task.description}</p>
       )}
 
       {task.createdBy && (
-        <p className="mb-2 text-xs text-gray-500">
+        <p className="mb-2 text-xs text-slate-500">
           Created by: {task.createdBy.name}
         </p>
       )}
 
       {task.assignee && (
-        <p className="mb-2 text-xs text-gray-500">
+        <p className="mb-2 text-xs text-slate-500">
           Assigned to: {task.assignee.name}
         </p>
       )}
@@ -140,7 +164,7 @@ const SortableTaskCard = ({
           e.stopPropagation();
         }}
         disabled={isUpdating}
-        className="mt-2 w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
+        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
       >
         <option value="">Unassigned</option>
         {assignees.map((assignee) => (
@@ -169,7 +193,7 @@ const DroppableColumn = ({
     <div
       ref={setNodeRef}
       className={`rounded-2xl border p-4 transition ${statusStyles[status]} ${
-        isOver ? "ring-2 ring-indigo-300" : ""
+        isOver ? "ring-2 ring-sky-300" : ""
       }`}
     >
       {children}
@@ -188,6 +212,10 @@ function ProjectPage() {
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<ProjectAssignee[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<PendingTaskDelete | null>(
+    null,
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -377,6 +405,34 @@ function ProjectPage() {
     }
   };
 
+  const requestDeleteTask = (taskId: string) => {
+    const task = tasks.find((item) => item._id === taskId);
+    if (!task) return;
+    setTaskToDelete({ id: task._id, title: task.title });
+  };
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    const previous = tasks;
+    setIsDeletingTask(true);
+    setUpdatingTaskId(taskToDelete.id);
+    setTasks((prev) => prev.filter((task) => task._id !== taskToDelete.id));
+
+    try {
+      await deleteTask(taskToDelete.id);
+      toast.success("Task deleted");
+      setTaskToDelete(null);
+    } catch (error) {
+      console.error(error);
+      setTasks(previous);
+      toast.error("Unable to delete task");
+    } finally {
+      setIsDeletingTask(false);
+      setUpdatingTaskId(null);
+    }
+  };
+
   const tasksByColumn = useMemo(
     () =>
       columns.reduce(
@@ -471,14 +527,20 @@ function ProjectPage() {
   }, [projectId]);
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Task Board</h1>
-      <p className="mb-5 text-sm text-gray-500">
+    <div className="fade-up space-y-5">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+          Project
+        </p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+          Task Board
+        </h1>
+      </div>
+      <p className="text-sm text-slate-600">
         Drag tasks across columns and assign owners directly from each card.
       </p>
 
-      {/* Create Task */}
-      <div className="mb-6 flex flex-col gap-2 md:flex-row">
+      <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 md:flex-row md:items-start md:p-4">
         <div className="flex w-full max-w-md flex-col gap-2">
           <input
             value={title}
@@ -489,20 +551,20 @@ function ProjectPage() {
                 void handleCreate();
               }
             }}
-            className="w-full rounded-xl border border-gray-300 bg-white p-2"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           />
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Description (optional)"
             rows={2}
-            className="w-full resize-none rounded-xl border border-gray-300 bg-white p-2 text-sm"
+            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           />
         </div>
         <select
           value={assigneeId}
           onChange={(e) => setAssigneeId(e.target.value)}
-          className="rounded-xl border border-gray-300 bg-white p-2 text-sm text-gray-700 md:w-64"
+          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 md:w-64"
         >
           <option value="">Unassigned</option>
           {hasNoAssignees && (
@@ -519,32 +581,31 @@ function ProjectPage() {
         <button
           onClick={handleCreate}
           disabled={!title.trim() || isCreating}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isCreating ? "Adding..." : "Add Task"}
         </button>
       </div>
 
       {hasNoAssignees && (
-        <p className="mb-6 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <p className="surface-card rounded-xl border border-dashed border-orange-300 bg-orange-50 p-3 text-sm text-orange-800">
           No workspace members are available to assign yet. You can still create
           unassigned tasks.
         </p>
       )}
 
-      {/* Columns */}
       {isLoading ? (
-        <div className="rounded-xl border border-dashed border-gray-300 p-8 text-gray-500">
+        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-8 text-slate-500">
           Loading tasks...
         </div>
       ) : (
         <>
           {hasNoTasks && (
-            <div className="mb-6 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50 p-6 text-center">
-              <h3 className="text-base font-semibold text-indigo-900">
+            <div className="surface-card rounded-2xl border border-dashed border-sky-300 bg-sky-50 p-6 text-center">
+              <h3 className="text-base font-semibold text-sky-900">
                 No tasks yet
               </h3>
-              <p className="mt-1 text-sm text-indigo-700">
+              <p className="mt-1 text-sm text-sky-700">
                 Create your first task above. You can add details, assign it,
                 and then drag it across columns.
               </p>
@@ -560,10 +621,10 @@ function ProjectPage() {
               {columns.map((status) => (
                 <DroppableColumn key={status} status={status}>
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
                       {statusLabels[status]}
                     </h2>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-600">
                       {tasksByColumn[status].length}
                     </span>
                   </div>
@@ -577,6 +638,7 @@ function ProjectPage() {
                         key={task._id}
                         task={task}
                         onAssigneeChange={changeTaskAssignee}
+                        onDelete={requestDeleteTask}
                         assignees={assignees}
                         isUpdating={updatingTaskId === task._id}
                       />
@@ -584,7 +646,7 @@ function ProjectPage() {
                   </SortableContext>
 
                   {tasksByColumn[status].length === 0 && (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-white/70 p-3 text-center text-xs text-gray-500">
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white/70 p-3 text-center text-xs text-slate-500">
                       Drop task here
                     </div>
                   )}
@@ -594,6 +656,18 @@ function ProjectPage() {
           </DndContext>
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(taskToDelete)}
+        title="Delete task?"
+        message={`"${taskToDelete?.title || ""}" will be permanently removed.`}
+        confirmLabel="Delete task"
+        isProcessing={isDeletingTask}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={() => {
+          void handleDeleteTask();
+        }}
+      />
     </div>
   );
 }
