@@ -20,9 +20,21 @@ connectDB();
 
 const app = express();
 
+const allowedOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
+
+const corsOrigin = (origin, callback) => {
+  // Allow non-browser requests and localhost dev servers on any port.
+  if (!origin || allowedOriginPattern.test(origin)) {
+    callback(null, true);
+    return;
+  }
+
+  callback(new Error("Not allowed by CORS"));
+};
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: corsOrigin,
     credentials: true,
   }),
 );
@@ -50,25 +62,56 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: corsOrigin,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  socket.on("joinWorkspace", (workspaceId, callback) => {
+    if (!workspaceId) {
+      callback?.({ ok: false, message: "workspaceId is required" });
+      return;
+    }
 
-  socket.on("joinWorkspace", (workspaceId) => {
-    socket.join(workspaceId);
+    socket.join(`workspace:${workspaceId}`);
+    callback?.({ ok: true });
   });
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected");
+  socket.on("leaveWorkspace", (workspaceId, callback) => {
+    if (!workspaceId) {
+      callback?.({ ok: false, message: "workspaceId is required" });
+      return;
+    }
+
+    socket.leave(`workspace:${workspaceId}`);
+    callback?.({ ok: true });
   });
+
+  socket.on("joinProject", (projectId, callback) => {
+    if (!projectId) {
+      callback?.({ ok: false, message: "projectId is required" });
+      return;
+    }
+
+    socket.join(`project:${projectId}`);
+    callback?.({ ok: true });
+  });
+
+  socket.on("leaveProject", (projectId, callback) => {
+    if (!projectId) {
+      callback?.({ ok: false, message: "projectId is required" });
+      return;
+    }
+
+    socket.leave(`project:${projectId}`);
+    callback?.({ ok: true });
+  });
+
+  socket.on("disconnect", () => {});
 });
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT);

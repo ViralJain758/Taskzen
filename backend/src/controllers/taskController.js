@@ -5,7 +5,6 @@ import Notification from "../models/Notification.js";
 export const createTask = async (req, res) => {
   try {
     const { projectId } = req.params;
-
     const { title, description, priority, assignee, dueDate } = req.body;
 
     if (!title) {
@@ -32,7 +31,10 @@ export const createTask = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    req.io.to(project.workspace.toString()).emit("taskCreated", task);
+    req.io.to(`project:${projectId}`).emit("project:task_created", {
+      projectId,
+      task,
+    });
 
     if (assignee) {
       await Notification.create({
@@ -101,7 +103,12 @@ export const updateTaskStatus = async (req, res) => {
       });
     }
 
-    req.io.to(task.project.workspace.toString()).emit("taskUpdated", task);
+    const projectId = task.project._id.toString();
+
+    req.io.to(`project:${projectId}`).emit("project:task_updated", {
+      projectId,
+      task,
+    });
 
     res.json({
       message: "Task status updated",
@@ -151,9 +158,14 @@ export const deleteTask = async (req, res) => {
       });
     }
 
+    const projectId = task.project._id.toString();
+
     await task.deleteOne();
 
-    req.io.to(task.project.workspace.toString()).emit("taskUpdated", task);
+    req.io.to(`project:${projectId}`).emit("project:task_deleted", {
+      projectId,
+      taskId: task._id.toString(),
+    });
 
     res.json({
       message: "Task deleted successfully",
