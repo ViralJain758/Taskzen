@@ -96,6 +96,76 @@ export const inviteMember = async (req, res) => {
   }
 };
 
+export const getWorkspaceMembers = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+
+    const memberships = await Membership.find({
+      workspace: workspaceId,
+    }).populate("user", "name email");
+
+    const members = memberships
+      .filter((membership) => membership.user)
+      .map((membership) => ({
+        user: {
+          _id: membership.user._id,
+          name: membership.user.name,
+          email: membership.user.email,
+        },
+        role: membership.role,
+      }));
+
+    res.json({
+      members,
+      requesterRole: req.membership.role,
+      canManageMembers: ["owner", "admin"].includes(req.membership.role),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const removeWorkspaceMember = async (req, res) => {
+  try {
+    const { workspaceId, memberId } = req.params;
+
+    const targetMembership = await Membership.findOne({
+      workspace: workspaceId,
+      user: memberId,
+    });
+
+    if (!targetMembership) {
+      return res.status(404).json({
+        message: "Member not found in this workspace",
+      });
+    }
+
+    if (targetMembership.role === "owner") {
+      return res.status(400).json({
+        message: "Workspace owner cannot be removed",
+      });
+    }
+
+    if (req.membership.role === "admin" && targetMembership.role !== "member") {
+      return res.status(403).json({
+        message: "Admins can only remove members",
+      });
+    }
+
+    await targetMembership.deleteOne();
+
+    res.json({
+      message: "Member removed successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 export const deleteWorkspace = async (req, res) => {
   try {
     const { workspaceId } = req.params;

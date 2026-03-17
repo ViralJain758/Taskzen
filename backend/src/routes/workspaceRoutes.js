@@ -5,6 +5,8 @@ import {
   createWorkspace,
   getUserWorkspaces,
   inviteMember,
+  getWorkspaceMembers,
+  removeWorkspaceMember,
   deleteWorkspace,
 } from "../controllers/workspaceController.js";
 
@@ -23,6 +25,18 @@ router.post(
   protect,
   authorizeWorkspaceRole(["owner", "admin"]),
   inviteMember,
+);
+router.get(
+  "/:workspaceId/members",
+  protect,
+  authorizeWorkspaceRole(["owner", "admin", "member"]),
+  getWorkspaceMembers,
+);
+router.delete(
+  "/:workspaceId/members/:memberId",
+  protect,
+  authorizeWorkspaceRole(["owner", "admin"]),
+  removeWorkspaceMember,
 );
 
 export default router;

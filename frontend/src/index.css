@@ -25,8 +25,16 @@ body {
   min-height: 100vh;
   color: var(--ink-strong);
   background:
-    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.16), transparent 40%),
-    radial-gradient(circle at 0% 100%, rgba(249, 115, 22, 0.12), transparent 45%),
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(14, 165, 233, 0.16),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 0% 100%,
+      rgba(249, 115, 22, 0.12),
+      transparent 45%
+    ),
     linear-gradient(180deg, var(--bg-base) 0%, #ffffff 100%);
 }
 
@@ -63,6 +71,14 @@ p {
   animation: fadeUp 0.35s ease-out;
 }
 
+.modal-panel-enter {
+  animation: modalPanelEnter 0.2s ease-out forwards;
+}
+
+.modal-panel-exit {
+  animation: modalPanelExit 0.18s ease-in forwards;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -71,5 +87,27 @@ p {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes modalPanelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalPanelExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
   }
 }

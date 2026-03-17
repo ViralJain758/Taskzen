@@ -14,3 +14,26 @@ export const deleteWorkspace = async (workspaceId: string) => {
   const res = await api.delete(`/workspaces/${workspaceId}`);
   return res.data;
 };
+
+export const getWorkspaceMembers = async (workspaceId: string) => {
+  const res = await api.get(`/workspaces/${workspaceId}/members`);
+  return res.data;
+};
+
+export const inviteWorkspaceMember = async (
+  workspaceId: string,
+  payload: { email: string; role: "admin" | "member" },
+) => {
+  const res = await api.post(`/workspaces/${workspaceId}/invite`, payload);
+  return res.data;
+};
+
+export const removeWorkspaceMember = async (
+  workspaceId: string,
+  memberId: string,
+) => {
+  const res = await api.delete(
+    `/workspaces/${workspaceId}/members/${memberId}`,
+  );
+  return res.data;
+};
