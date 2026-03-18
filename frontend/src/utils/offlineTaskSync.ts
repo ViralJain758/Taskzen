@@ -4,10 +4,12 @@ import {
   deleteTask,
   deleteTaskComment,
   updateTaskAssignee,
+  updateTaskPriority,
   updateTaskStatus,
 } from "../services/taskService";
 
 type TaskStatus = "todo" | "in_progress" | "completed";
+type TaskPriority = "low" | "medium" | "high";
 
 type OfflineTaskAction =
   | {
@@ -20,6 +22,7 @@ type OfflineTaskAction =
         title: string;
         description?: string;
         assignee?: string | null;
+        priority?: TaskPriority;
       };
     }
   | {
@@ -40,6 +43,16 @@ type OfflineTaskAction =
       taskId: string;
       payload: {
         assignee: string | null;
+      };
+    }
+  | {
+      id: string;
+      createdAt: number;
+      projectId: string;
+      type: "UPDATE_TASK_PRIORITY";
+      taskId: string;
+      payload: {
+        priority: TaskPriority;
       };
     }
   | {
@@ -155,6 +168,23 @@ const compactQueue = (actions: OfflineAction[]): OfflineAction[] => {
           candidate.projectId === action.projectId &&
           candidate.taskId === action.taskId &&
           candidate.type === "UPDATE_TASK_ASSIGNEE"
+        ) {
+          compacted.splice(i, 1);
+          break;
+        }
+      }
+
+      compacted.push(action);
+      continue;
+    }
+
+    if (action.type === "UPDATE_TASK_PRIORITY") {
+      for (let i = compacted.length - 1; i >= 0; i -= 1) {
+        const candidate = compacted[i];
+        if (
+          candidate.projectId === action.projectId &&
+          candidate.taskId === action.taskId &&
+          candidate.type === "UPDATE_TASK_PRIORITY"
         ) {
           compacted.splice(i, 1);
           break;
@@ -315,6 +345,15 @@ export const syncOfflineActions = async (
         }
 
         await updateTaskAssignee(resolvedTaskId, action.payload.assignee);
+      }
+
+      if (action.type === "UPDATE_TASK_PRIORITY") {
+        if (isTempTaskId(resolvedTaskId) && !tempTaskIdMap.get(action.taskId)) {
+          remaining.push(action, ...toSync.slice(i + 1));
+          break;
+        }
+
+        await updateTaskPriority(resolvedTaskId, action.payload.priority);
       }
 
       if (action.type === "DELETE_TASK") {

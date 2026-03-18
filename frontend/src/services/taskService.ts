@@ -26,7 +26,12 @@ export const getTasks = async (projectId: string) => {
 
 export const createTask = async (
   projectId: string,
-  data: { title: string; description?: string; assignee?: string | null },
+  data: {
+    title: string;
+    description?: string;
+    assignee?: string | null;
+    priority?: "low" | "medium" | "high";
+  },
 ) => {
   const res = await api.post(`/tasks/${projectId}`, data);
   return res.data;
@@ -49,6 +54,14 @@ export const updateTaskAssignee = async (
   assignee: string | null,
 ) => {
   const res = await api.patch(`/tasks/${taskId}`, { assignee });
+  return res.data;
+};
+
+export const updateTaskPriority = async (
+  taskId: string,
+  priority: "low" | "medium" | "high",
+) => {
+  const res = await api.patch(`/tasks/${taskId}`, { priority });
   return res.data;
 };
 

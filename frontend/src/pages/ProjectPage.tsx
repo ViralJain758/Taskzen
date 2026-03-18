@@ -12,6 +12,7 @@ import {
   getTaskComments,
   addTaskComment,
   deleteTaskComment,
+  updateTaskPriority,
 } from "../services/taskService";
 import socket, { joinProjectRoom, leaveProjectRoom } from "../sockets/socket";
 import toast from "react-hot-toast";
@@ -45,12 +46,14 @@ import {
 } from "../utils";
 
 type TaskStatus = "todo" | "in_progress" | "completed";
+type TaskPriority = "low" | "medium" | "high";
 
 interface Task {
   _id: string;
   title: string;
   description?: string;
   status: TaskStatus;
+  priority: TaskPriority;
   createdBy?: {
     _id: string;
     name: string;
@@ -108,6 +111,18 @@ const statusStyles: Record<TaskStatus, string> = {
   completed: "bg-emerald-50/80 border-emerald-200",
 };
 
+const priorityLabels: Record<TaskPriority, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+const priorityBadgeStyles: Record<TaskPriority, string> = {
+  low: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  medium: "border-amber-200 bg-amber-50 text-amber-700",
+  high: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
 const SortableTaskCard = ({
   task,
   onAssigneeChange,
@@ -127,6 +142,7 @@ const SortableTaskCard = ({
   statusMenuTaskId,
   onStatusMenuOpen,
   onStatusChange,
+  onPriorityChange,
   pendingOfflineCommentIds,
 }: {
   task: Task;
@@ -150,6 +166,7 @@ const SortableTaskCard = ({
   statusMenuTaskId: string | null;
   onStatusMenuOpen: (taskId: string | null) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
+  onPriorityChange: (taskId: string, priority: TaskPriority) => Promise<void>;
   pendingOfflineCommentIds: string[];
 }) => {
   const [newComment, setNewComment] = useState("");
@@ -246,6 +263,12 @@ const SortableTaskCard = ({
         <p className="mb-2 text-xs text-slate-600">{task.description}</p>
       )}
 
+      <div
+        className={`mb-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${priorityBadgeStyles[task.priority]}`}
+      >
+        {priorityLabels[task.priority]} priority
+      </div>
+
       {task.createdBy && (
         <p className="mb-2 text-xs text-slate-500">
           Created by: {task.createdBy.name}
@@ -275,6 +298,22 @@ const SortableTaskCard = ({
             {assignee.name}
           </option>
         ))}
+      </select>
+
+      <select
+        value={task.priority}
+        onChange={(e) =>
+          void onPriorityChange(task._id, e.target.value as TaskPriority)
+        }
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
+        disabled={isUpdating}
+        className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+      >
+        <option value="low">Low priority</option>
+        <option value="medium">Medium priority</option>
+        <option value="high">High priority</option>
       </select>
 
       <button
@@ -431,6 +470,7 @@ function ProjectPage() {
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<ProjectAssignee[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<PendingTaskDelete | null>(
     null,
@@ -696,6 +736,7 @@ function ProjectPage() {
       title: taskTitle,
       description: taskDescription || undefined,
       assignee: assigneeId || undefined,
+      priority,
     };
 
     let optimisticCreator: Task["createdBy"];
@@ -725,6 +766,7 @@ function ProjectPage() {
       title: taskTitle,
       description: taskDescription || undefined,
       status: "todo",
+      priority,
       createdBy: optimisticCreator,
     };
 
@@ -741,6 +783,7 @@ function ProjectPage() {
       });
       setAssigneeId("");
       setDescription("");
+      setPriority("medium");
       setIsCreating(false);
       refreshPendingOfflineActions();
       toast("Saved offline. Task will sync automatically.", { icon: "📦" });
@@ -761,6 +804,7 @@ function ProjectPage() {
       setTasks(freshTasks);
       setAssigneeId("");
       setDescription("");
+      setPriority("medium");
       toast.success("Task created");
     } catch (error) {
       console.error(error);
@@ -881,6 +925,61 @@ function ProjectPage() {
       console.error(error);
       setTasks(previous);
       toast.error("Unable to update assignee");
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
+  const changeTaskPriority = async (
+    taskId: string,
+    nextPriority: TaskPriority,
+  ) => {
+    const previous = tasks;
+    const task = tasks.find((item) => item._id === taskId);
+    if (!task || task.priority === nextPriority) return;
+
+    setUpdatingTaskId(taskId);
+    setTasks((prev) =>
+      prev.map((item) =>
+        item._id === taskId ? { ...item, priority: nextPriority } : item,
+      ),
+    );
+
+    if (!projectId) {
+      setUpdatingTaskId(null);
+      return;
+    }
+
+    if (!isOnline) {
+      enqueueTaskAction({
+        projectId,
+        type: "UPDATE_TASK_PRIORITY",
+        taskId,
+        payload: { priority: nextPriority },
+      });
+      setUpdatingTaskId(null);
+      refreshPendingOfflineActions();
+      toast("Saved offline. Priority update will sync.", { icon: "📦" });
+      return;
+    }
+
+    try {
+      const res = await updateTaskPriority(taskId, nextPriority);
+
+      if (res.task) {
+        setTasks((prev) =>
+          prev.map((item) =>
+            item._id === taskId ? { ...item, ...res.task } : item,
+          ),
+        );
+      }
+
+      const freshTasks = await fetchTasks();
+      setTasks(freshTasks);
+    } catch (error) {
+      console.error(error);
+      setTasks(previous);
+      toast.error("Unable to update priority");
     } finally {
       setUpdatingTaskId(null);
     }
@@ -1308,6 +1407,15 @@ function ProjectPage() {
             </option>
           ))}
         </select>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as TaskPriority)}
+          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 md:w-48"
+        >
+          <option value="low">Low priority</option>
+          <option value="medium">Medium priority</option>
+          <option value="high">High priority</option>
+        </select>
         <button
           onClick={handleCreate}
           disabled={!title.trim() || isCreating}
@@ -1390,6 +1498,7 @@ function ProjectPage() {
                         statusMenuTaskId={statusMenuTaskId}
                         onStatusMenuOpen={setStatusMenuTaskId}
                         onStatusChange={moveTask}
+                        onPriorityChange={changeTaskPriority}
                         pendingOfflineCommentIds={
                           pendingOfflineCommentIdsByTask[task._id] || []
                         }
