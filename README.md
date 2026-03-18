@@ -18,6 +18,10 @@ The repository is organized as a monorepo with separate frontend and backend app
 - Offline-first task/comment changes with automatic sync on reconnect
 - TanStack Query server-state caching with optimistic UI updates
 
+## Live Deployment
+
+**Frontend:** https://taskzen-orpin.vercel.app/
+
 ## Monorepo Structure
 
 - backend: Express + MongoDB + Socket.IO API server
