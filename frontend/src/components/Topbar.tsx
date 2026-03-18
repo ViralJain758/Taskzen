@@ -4,6 +4,7 @@ import { AuthContext } from "../context/auth-context";
 import { SidebarContext } from "../context/SidebarContext";
 import { setAuthToken } from "../services/api";
 import toast from "react-hot-toast";
+import { NotificationBell } from "./NotificationBell";
 
 function Topbar() {
   const auth = useContext(AuthContext);
@@ -21,7 +22,7 @@ function Topbar() {
   };
 
   return (
-    <header className="surface-card flex min-h-14 items-center justify-between border-b border-slate-200/80 bg-white/75 px-3 py-2 sm:px-4 sm:py-3 md:px-6">
+    <header className="surface-card relative z-[900] flex min-h-14 items-center justify-between border-b border-slate-200/80 bg-white/75 px-3 py-2 sm:px-4 sm:py-3 md:px-6">
       <button
         type="button"
         onClick={() => sidebarContext?.toggleSidebar()}
@@ -48,6 +49,7 @@ function Topbar() {
       </h1>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <NotificationBell />
         <button
           onClick={handleLogout}
           className="hidden rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 sm:block"

@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import http from "http";
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 
 import connectDB from "./src/config/db.js";
 
@@ -68,7 +69,41 @@ const io = new Server(server, {
   },
 });
 
+// Extract and verify JWT token for Socket.io authentication
+const verifyToken = (token) => {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+};
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Authentication required"));
+  }
+
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return next(new Error("Invalid token"));
+  }
+
+  // Login token payload uses userId; keep id fallback for compatibility.
+  socket.userId = decoded.userId || decoded.id;
+  if (!socket.userId) {
+    return next(new Error("Invalid token payload"));
+  }
+  next();
+});
+
 io.on("connection", (socket) => {
+  // Join user to their notification room
+  if (socket.userId) {
+    socket.join(socket.userId);
+  }
+
   socket.on("joinWorkspace", (workspaceId, callback) => {
     if (!workspaceId) {
       callback?.({ ok: false, message: "workspaceId is required" });

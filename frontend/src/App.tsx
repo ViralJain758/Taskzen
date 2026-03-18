@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "./context/SidebarContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -15,44 +16,46 @@ import Footer from "./components/Footer";
 function App() {
   return (
     <SidebarProvider>
-      <BrowserRouter>
-        <div className="flex min-h-screen flex-col">
-          <div className="flex-1">
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
-                }
-              />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route
-                path="/workspace/:workspaceId"
-                element={
-                  <MainLayout>
-                    <WorkspacePage />
-                  </MainLayout>
-                }
-              />
-              <Route
-                path="/project/:projectId"
-                element={
-                  <MainLayout>
-                    <ProjectPage />
-                  </MainLayout>
-                }
-              />
-            </Routes>
+      <NotificationProvider>
+        <BrowserRouter>
+          <div className="flex min-h-screen flex-col">
+            <div className="flex-1">
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <MainLayout>
+                      <Dashboard />
+                    </MainLayout>
+                  }
+                />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route
+                  path="/workspace/:workspaceId"
+                  element={
+                    <MainLayout>
+                      <WorkspacePage />
+                    </MainLayout>
+                  }
+                />
+                <Route
+                  path="/project/:projectId"
+                  element={
+                    <MainLayout>
+                      <ProjectPage />
+                    </MainLayout>
+                  }
+                />
+              </Routes>
+            </div>
+            <Footer />
           </div>
-          <Footer />
-        </div>
-      </BrowserRouter>
+        </BrowserRouter>
+      </NotificationProvider>
     </SidebarProvider>
   );
 }

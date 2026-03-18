@@ -3,6 +3,7 @@ import Membership from "../models/Membership.js";
 import User from "../models/User.js";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
+import Notification from "../models/Notification.js";
 
 export const createWorkspace = async (req, res) => {
   try {
@@ -84,6 +85,21 @@ export const inviteMember = async (req, res) => {
       workspace: workspaceId,
       role: role || "member",
     });
+
+    // Create notification for user being added to workspace
+    const workspace = await Workspace.findById(workspaceId);
+    await Notification.create({
+      user: user._id,
+      message: `You were added to workspace: ${workspace.name}`,
+      type: "workspace",
+    });
+
+    // Emit real-time notification
+    if (req.io) {
+      req.io.to(user._id.toString()).emit("notification", {
+        message: `You were added to workspace: ${workspace.name}`,
+      });
+    }
 
     res.status(201).json({
       message: "User added to workspace",

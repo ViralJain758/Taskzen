@@ -167,6 +167,12 @@ export const updateTask = async (req, res) => {
       updates.assignee = updates.assignee || null;
     }
 
+    // Get the original task to check if assignee is being changed
+    const originalTask = await Task.findById(taskId);
+    const isAssigneeChanging =
+      updates.assignee &&
+      originalTask.assignee?.toString() !== updates.assignee;
+
     const updatedTask = await Task.findByIdAndUpdate(taskId, updates, {
       new: true,
     })
@@ -186,6 +192,19 @@ export const updateTask = async (req, res) => {
       projectId,
       task: updatedTask,
     });
+
+    // Create notification if assignee changed
+    if (isAssigneeChanging && updates.assignee) {
+      await Notification.create({
+        user: updates.assignee,
+        message: "You were assigned a task",
+        type: "task",
+      });
+
+      req.io.to(updates.assignee.toString()).emit("notification", {
+        message: "You were assigned a task",
+      });
+    }
 
     res.json({
       message: "Task updated successfully",
