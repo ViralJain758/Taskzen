@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getProjectInsights,
   type ProjectInsight,
@@ -47,7 +47,7 @@ export const SmartInsightsPanel = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchInsights = async () => {
+  const fetchInsights = useCallback(async () => {
     if (!projectId) {
       setInsights([]);
       setErrorMessage(null);
@@ -66,11 +66,11 @@ export const SmartInsightsPanel = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     void fetchInsights();
-  }, [projectId, refreshSignal]);
+  }, [fetchInsights, refreshSignal]);
 
   // Separate insights by type (health goes to the right, critical ones on top)
   const criticalInsights = insights.filter(

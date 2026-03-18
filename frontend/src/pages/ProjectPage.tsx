@@ -659,9 +659,6 @@ function ProjectPage() {
       if (result.conflictCount > 0) {
         toast(
           `${result.conflictCount} change(s) resolved with last-write-wins`,
-          {
-            icon: "⚠️",
-          },
         );
       }
     } catch (error) {
@@ -807,7 +804,7 @@ function ProjectPage() {
       setPriority("medium");
       setIsCreating(false);
       refreshPendingOfflineActions();
-      toast("Saved offline. Task will sync automatically.", { icon: "📦" });
+      toast("Saved offline. Task will sync automatically.");
       return;
     }
 
@@ -861,7 +858,7 @@ function ProjectPage() {
       });
       setUpdatingTaskId(null);
       refreshPendingOfflineActions();
-      toast("Saved offline. Status change will sync.", { icon: "📦" });
+      toast("Saved offline. Status change will sync.");
       return;
     }
 
@@ -889,7 +886,7 @@ function ProjectPage() {
           payload: { status },
         });
         refreshPendingOfflineActions();
-        toast("Saved offline. Status change will sync.", { icon: "📦" });
+        toast("Saved offline. Status change will sync.");
       } else {
         setTasks(previous);
         toast.error("Unable to update task status");
@@ -940,7 +937,7 @@ function ProjectPage() {
       });
       setUpdatingTaskId(null);
       refreshPendingOfflineActions();
-      toast("Saved offline. Assignee update will sync.", { icon: "📦" });
+      toast("Saved offline. Assignee update will sync.");
       return;
     }
 
@@ -995,7 +992,7 @@ function ProjectPage() {
       });
       setUpdatingTaskId(null);
       refreshPendingOfflineActions();
-      toast("Saved offline. Priority update will sync.", { icon: "📦" });
+      toast("Saved offline. Priority update will sync.");
       return;
     }
 
@@ -1099,7 +1096,7 @@ function ProjectPage() {
       });
 
       refreshPendingOfflineActions();
-      toast("Saved offline. Comment will sync.", { icon: "📦" });
+      toast("Saved offline. Comment will sync.");
       return;
     }
 
@@ -1155,7 +1152,7 @@ function ProjectPage() {
         });
 
         refreshPendingOfflineActions();
-        toast("Saved offline. Comment deletion will sync.", { icon: "📦" });
+        toast("Saved offline. Comment deletion will sync.");
         return;
       }
 
@@ -1206,7 +1203,7 @@ function ProjectPage() {
       setIsDeletingTask(false);
       setUpdatingTaskId(null);
       refreshPendingOfflineActions();
-      toast("Saved offline. Task deletion will sync.", { icon: "📦" });
+      toast("Saved offline. Task deletion will sync.");
       return;
     }
 
