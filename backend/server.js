@@ -15,11 +15,14 @@ connectDB();
 
 const app = express();
 
-const allowedOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
+const allowedOrigins = [
+  /^http:\/\/(localhost|127\.0\.0\.1):\d+$/,
+  /^https:\/\/taskzen-orpin\.vercel\.app$/,
+];
 
 const corsOrigin = (origin, callback) => {
-  // Allow non-browser requests and localhost dev servers on any port.
-  if (!origin || allowedOriginPattern.test(origin)) {
+  // Allow non-browser requests and whitelisted origins.
+  if (!origin || allowedOrigins.some((pattern) => pattern.test(origin))) {
     callback(null, true);
     return;
   }
