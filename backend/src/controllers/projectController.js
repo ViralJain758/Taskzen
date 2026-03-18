@@ -2,6 +2,7 @@ import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 import Membership from "../models/Membership.js";
 import Activity from "../models/Activity.js";
+import { generateInsights } from "../utils/insights.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -134,6 +135,63 @@ export const deleteProject = async (req, res) => {
 
     res.json({
       message: "Project deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const getProjectInsights = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId)
+      .populate("workspace", "name")
+      .populate("createdBy", "name email");
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: project.workspace._id,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
+      });
+    }
+
+    // Fetch all tasks for the project with assignee info
+    const tasks = await Task.find({ project: projectId }).populate(
+      "assignee",
+      "_id name email",
+    );
+
+    // Fetch workspace memberships for assignee context.
+    const memberships = await Membership.find({
+      workspace: project.workspace._id,
+    }).populate("user", "name email");
+
+    const assignees = memberships
+      .filter((membershipItem) => membershipItem.user)
+      .map((membershipItem) => ({
+        _id: membershipItem.user._id,
+        name: membershipItem.user.name,
+        email: membershipItem.user.email,
+      }));
+
+    // Generate insights
+    const insights = generateInsights(tasks, assignees);
+
+    res.json({
+      insights,
     });
   } catch (error) {
     res.status(500).json({

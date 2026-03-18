@@ -19,6 +19,19 @@ export interface TaskComment {
   createdAt: string;
 }
 
+export interface ProjectInsight {
+  type: "overdue" | "stuck" | "overloaded" | "workload" | "health";
+  icon: string;
+  message: string;
+  severity: "high" | "medium" | "low" | "info" | "good";
+  count?: number;
+  meta?: {
+    completion: number;
+    total: number;
+    completed: number;
+  };
+}
+
 export const getTasks = async (projectId: string) => {
   const res = await api.get(`/tasks/${projectId}`);
   return res.data;
@@ -85,4 +98,11 @@ export const addTaskComment = async (taskId: string, content: string) => {
 export const deleteTaskComment = async (commentId: string) => {
   const res = await api.delete(`/comments/${commentId}`);
   return res.data;
+};
+
+export const getProjectInsights = async (
+  projectId: string,
+): Promise<ProjectInsight[]> => {
+  const res = await api.get(`/projects/insights/${projectId}`);
+  return res.data.insights;
 };

@@ -21,7 +21,10 @@ import {
   DndContext,
   DragOverlay,
   type DragStartEvent,
+  type DragOverEvent,
   type DragEndEvent,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useDroppable,
@@ -37,6 +40,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "../components/ConfirmDialog";
+import SmartInsightsPanel from "../components/SmartInsightsPanel";
 import {
   enqueueCommentAction,
   enqueueTaskAction,
@@ -47,6 +51,22 @@ import {
 
 type TaskStatus = "todo" | "in_progress" | "completed";
 type TaskPriority = "low" | "medium" | "high";
+
+const kanbanCollisionDetection = (
+  args: Parameters<typeof pointerWithin>[0],
+) => {
+  const pointerHits = pointerWithin(args);
+  if (pointerHits.length > 0) {
+    return pointerHits;
+  }
+
+  const intersectionHits = rectIntersection(args);
+  if (intersectionHits.length > 0) {
+    return intersectionHits;
+  }
+
+  return closestCorners(args);
+};
 
 interface Task {
   _id: string;
@@ -491,6 +511,7 @@ function ProjectPage() {
     null,
   );
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
   const [statusMenuTaskId, setStatusMenuTaskId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(() =>
     typeof window === "undefined" ? true : window.navigator.onLine,
@@ -856,8 +877,23 @@ function ProjectPage() {
       setTasks(freshTasks);
     } catch (error) {
       console.error(error);
-      setTasks(previous);
-      toast.error("Unable to update task status");
+
+      const isNetworkLikeError =
+        typeof error === "object" && error !== null && !("response" in error);
+
+      if (isNetworkLikeError && projectId) {
+        enqueueTaskAction({
+          projectId,
+          type: "UPDATE_TASK_STATUS",
+          taskId,
+          payload: { status },
+        });
+        refreshPendingOfflineActions();
+        toast("Saved offline. Status change will sync.", { icon: "📦" });
+      } else {
+        setTasks(previous);
+        toast.error("Unable to update task status");
+      }
     } finally {
       setUpdatingTaskId(null);
     }
@@ -1209,6 +1245,17 @@ function ProjectPage() {
     [tasks],
   );
 
+  const insightsRefreshSignal = useMemo(
+    () =>
+      tasks
+        .map((task) => {
+          const assigneeId = task.assignee?._id || "";
+          return `${task._id}:${task.status}:${task.priority}:${assigneeId}`;
+        })
+        .join("|"),
+    [tasks],
+  );
+
   const hasNoTasks = !isLoading && tasks.length === 0;
   const hasNoAssignees = assignees.length === 0;
   const activeTask = activeTaskId
@@ -1217,28 +1264,89 @@ function ProjectPage() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveTaskId(String(event.active.id));
+    setDragOverStatus(null);
   };
 
   const handleDragCancel = () => {
     setActiveTaskId(null);
+    setDragOverStatus(null);
+  };
+
+  const resolveStatusFromOver = (
+    overIdRaw: string,
+    overData?: {
+      status?: TaskStatus;
+      sortable?: { containerId?: string };
+    },
+  ): TaskStatus | undefined => {
+    const overId = String(overIdRaw);
+
+    if (columns.includes(overId as TaskStatus)) {
+      return overId as TaskStatus;
+    }
+
+    const taskFromOverId = tasks.find((task) => task._id === overId);
+    if (taskFromOverId) {
+      return taskFromOverId.status;
+    }
+
+    const fromDroppableData = overData?.status;
+    if (fromDroppableData) {
+      return fromDroppableData;
+    }
+
+    const containerId = overData?.sortable?.containerId;
+    if (containerId && columns.includes(containerId as TaskStatus)) {
+      return containerId as TaskStatus;
+    }
+
+    return undefined;
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) return;
+
+    const overStatus = resolveStatusFromOver(
+      String(over.id),
+      over.data.current as
+        | {
+            status?: TaskStatus;
+            sortable?: { containerId?: string };
+          }
+        | undefined,
+    );
+
+    if (overStatus) {
+      setDragOverStatus(overStatus);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTaskId(null);
-    if (!over) return;
+    if (!over) {
+      setDragOverStatus(null);
+      return;
+    }
 
     const activeTaskId = String(active.id);
     const activeTask = tasks.find((task) => task._id === activeTaskId);
     if (!activeTask) return;
 
     const overStatus =
-      (over.data.current?.status as TaskStatus | undefined) ||
-      ((columns.includes(String(over.id) as TaskStatus)
-        ? String(over.id)
-        : undefined) as TaskStatus | undefined);
+      resolveStatusFromOver(
+        String(over.id),
+        over.data.current as
+          | {
+              status?: TaskStatus;
+              sortable?: { containerId?: string };
+            }
+          | undefined,
+      ) || dragOverStatus;
 
     if (!overStatus) return;
+    setDragOverStatus(null);
     void moveTask(activeTaskId, overStatus);
   };
 
@@ -1432,6 +1540,11 @@ function ProjectPage() {
         </p>
       )}
 
+      <SmartInsightsPanel
+        projectId={projectId}
+        refreshSignal={insightsRefreshSignal}
+      />
+
       {isLoading ? (
         <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-8 text-slate-500">
           Loading tasks...
@@ -1452,8 +1565,9 @@ function ProjectPage() {
 
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={kanbanCollisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
           >
@@ -1474,6 +1588,7 @@ function ProjectPage() {
                   </div>
 
                   <SortableContext
+                    id={status}
                     items={tasksByColumn[status].map((task) => task._id)}
                     strategy={verticalListSortingStrategy}
                   >

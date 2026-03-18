@@ -6,11 +6,14 @@ import {
   getWorkspaceProjects,
   getProjectById,
   deleteProject,
+  getProjectInsights,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
 
 router.get("/detail/:projectId", protect, getProjectById);
+
+router.get("/insights/:projectId", protect, getProjectInsights);
 
 router.post(
   "/:workspaceId",
