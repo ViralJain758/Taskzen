@@ -51,9 +51,46 @@ Taskzen backend is a Node.js API built with Express, MongoDB, and Socket.IO. It 
 
 Create backend/.env:
 
-    MONGO_URI=your_mongodb_connection_string
-    JWT_SECRET=your_jwt_secret
-    PORT=5000
+MONGO_URI_ATLAS=your_mongodb_atlas_connection_string
+
+# Optional fallback for local/non-Atlas setups:
+
+# MONGO_URI=mongodb://127.0.0.1:27017/taskzen
+
+JWT_SECRET=your_jwt_secret
+PORT=5000
+
+### MongoDB Atlas Setup (Recommended)
+
+1. Create an Atlas project and cluster:
+
+- Open MongoDB Atlas and create a new project.
+- Create an M0 free cluster (or higher tier).
+
+2. Create a database user:
+
+- Go to Database Access.
+- Create a user with readWrite permissions for your application database.
+
+3. Configure network access:
+
+- Go to Network Access.
+- Add your current IP address for local development.
+- For temporary testing, you can allow 0.0.0.0/0 (not recommended long-term).
+
+4. Copy the connection string:
+
+- In your cluster, click Connect > Drivers.
+- Copy the mongodb+srv URI.
+- Replace <username>, <password>, and database name.
+
+5. Set backend/.env:
+
+   MONGO_URI_ATLAS=mongodb+srv://<username>:<password>@<cluster-url>/taskzen?retryWrites=true&w=majority
+
+6. URL-encode special characters in passwords:
+
+- Example: @ becomes %40, # becomes %23.
 
 ## Installation
 

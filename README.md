@@ -49,7 +49,7 @@ The repository is organized as a monorepo with separate frontend and backend app
 
 - Node.js 18+
 - npm 9+
-- MongoDB instance (local or cloud)
+- MongoDB Atlas cluster (recommended primary)
 
 ## Quick Start
 
@@ -69,9 +69,21 @@ Frontend:
 
 Create backend/.env with:
 
-    MONGO_URI=your_mongodb_connection_string
+    MONGO_URI_ATLAS=your_mongodb_atlas_connection_string
+    # Optional fallback for local/non-Atlas setups:
+    # MONGO_URI=mongodb://127.0.0.1:27017/taskzen
     JWT_SECRET=your_jwt_secret
     PORT=5000
+
+MongoDB Atlas quick setup:
+
+1. Create an Atlas project and cluster (M0 is fine for development).
+2. Create a database user with readWrite access.
+3. Add your current IP address in Atlas Network Access.
+4. Copy the mongodb+srv URI from Atlas and set MONGO_URI_ATLAS.
+5. URL-encode special password characters (for example @ -> %40, # -> %23).
+
+For full step-by-step Atlas instructions, see backend/README.md.
 
 ### 3. Start backend
 

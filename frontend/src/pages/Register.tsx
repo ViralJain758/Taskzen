@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import axios from "axios";
-import api from "../services/api";
+import api, { setAuthToken } from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import type { ApiErrorResponse } from "../types/api.ts";
 import toast from "react-hot-toast";
@@ -33,9 +33,19 @@ function Register() {
 
     try {
       setIsSubmitting(true);
-      await api.post("/auth/register", form);
+      const res = await api.post("/auth/register", form);
+
+      const { token, user } = res.data;
+
+      auth?.setUser(user);
+      auth?.setToken(token);
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      setAuthToken(token);
       toast.success("Registration successful");
-      navigate("/login");
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
         toast.error(error.response?.data?.message || "Registration failed");
