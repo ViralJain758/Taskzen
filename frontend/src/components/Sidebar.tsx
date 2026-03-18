@@ -26,6 +26,8 @@ function Sidebar() {
   const location = useLocation();
   const sidebarContext = useContext(SidebarContext);
 
+  const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([]);
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [workspaceName, setWorkspaceName] = useState<string>("Workspace");
   const [projectName, setProjectName] = useState<string>("Project Board");
   const [resolvedWorkspaceId, setResolvedWorkspaceId] = useState<
@@ -44,10 +46,37 @@ function Sidebar() {
   useEffect(() => {
     let isMounted = true;
 
+    const loadWorkspaces = async () => {
+      try {
+        setIsLoadingWorkspaces(true);
+        const data = (await getWorkspaces()) as WorkspaceListItem[];
+        if (isMounted) {
+          setWorkspaces(data);
+        }
+      } catch {
+        if (isMounted) {
+          setWorkspaces([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingWorkspaces(false);
+        }
+      }
+    };
+
+    void loadWorkspaces();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const loadSidebarNames = async () => {
       try {
         if (isWorkspacePage && workspaceId) {
-          const workspaces = (await getWorkspaces()) as WorkspaceListItem[];
           const matchedWorkspace = workspaces.find(
             (item) => item.workspace._id === workspaceId,
           );
@@ -86,10 +115,20 @@ function Sidebar() {
     return () => {
       isMounted = false;
     };
-  }, [isWorkspacePage, isProjectPage, workspaceId, projectId]);
+  }, [isWorkspacePage, isProjectPage, workspaceId, projectId, workspaces]);
 
   const handleNavClick = () => {
     sidebarContext?.closeSidebar();
+  };
+
+  const activeWorkspaceId = resolvedWorkspaceId || workspaceId;
+
+  const navItemClass = (isActive: boolean) => {
+    return `group block w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
+      isActive
+        ? "border-sky-300 bg-gradient-to-r from-sky-100 via-sky-50 to-white text-sky-900 shadow-sm"
+        : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900"
+    }`;
   };
 
   return (
@@ -125,57 +164,116 @@ function Sidebar() {
         </button>
 
         <div className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-          Navigation
+          Core Navigation
         </div>
         <nav className="space-y-2">
+          <button
+            onClick={() => {
+              navigate("/");
+              handleNavClick();
+            }}
+            className={navItemClass(location.pathname === "/")}
+          >
+            Home
+          </button>
           <button
             onClick={() => {
               navigate("/dashboard");
               handleNavClick();
             }}
-            className={`block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
-              isDashboard
-                ? "bg-sky-100 text-sky-900"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            }`}
+            className={navItemClass(isDashboard)}
           >
             Dashboard
           </button>
-
-          {(isWorkspacePage || isProjectPage) && (
-            <button
-              onClick={() => {
-                if (resolvedWorkspaceId) {
-                  navigate(`/workspace/${resolvedWorkspaceId}`);
-                  handleNavClick();
-                }
-              }}
-              className={`block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
-                isWorkspacePage
-                  ? "bg-sky-100 text-sky-900"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              {workspaceName}
-            </button>
-          )}
-
-          {isProjectPage && projectId && (
-            <button
-              onClick={() => {
-                navigate(`/project/${projectId}`);
-                handleNavClick();
-              }}
-              className="block w-full rounded-xl bg-sky-100 px-3 py-2 text-left text-sm font-semibold text-sky-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-            >
-              {projectName}
-            </button>
-          )}
         </nav>
+
+        {(isWorkspacePage || isProjectPage) && (
+          <>
+            <div className="mb-2 mt-5 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+              Current Context
+            </div>
+            <nav className="space-y-2">
+              <button
+                onClick={() => {
+                  if (resolvedWorkspaceId) {
+                    navigate(`/workspace/${resolvedWorkspaceId}`);
+                    handleNavClick();
+                  }
+                }}
+                className={navItemClass(isWorkspacePage)}
+              >
+                {workspaceName}
+              </button>
+
+              {isProjectPage && projectId && (
+                <button
+                  onClick={() => {
+                    navigate(`/project/${projectId}`);
+                    handleNavClick();
+                  }}
+                  className={navItemClass(true)}
+                >
+                  {projectName}
+                </button>
+              )}
+            </nav>
+          </>
+        )}
+
+        <div className="mb-2 mt-5 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          Workspace Switcher
+        </div>
+        <div className="space-y-2">
+          {isLoadingWorkspaces ? (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-500">
+              Loading workspaces...
+            </p>
+          ) : workspaces.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-3 py-2 text-xs text-slate-500">
+              No workspaces yet.
+            </p>
+          ) : (
+            workspaces.map((item) => {
+              const isActiveWorkspace =
+                activeWorkspaceId === item.workspace._id &&
+                (isWorkspacePage || isProjectPage);
+
+              return (
+                <button
+                  key={item.workspace._id}
+                  type="button"
+                  onClick={() => {
+                    navigate(`/workspace/${item.workspace._id}`);
+                    handleNavClick();
+                  }}
+                  className={navItemClass(isActiveWorkspace)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate">{item.workspace.name}</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
+                      {item.role}
+                    </span>
+                  </div>
+                </button>
+              );
+            })
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              navigate("/dashboard");
+              handleNavClick();
+            }}
+            className="micro-action mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            View all workspaces ({workspaces.length})
+          </button>
+        </div>
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
-            Quick Hints
+            Workflow Hints
           </p>
           <ul className="mt-2 space-y-2 text-xs text-slate-600">
             <li>Drag tasks between columns to update status.</li>

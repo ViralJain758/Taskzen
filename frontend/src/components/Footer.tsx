@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 
 function Footer() {
   return (
-    <footer className="surface-card mt-6 border-t border-slate-200/80 bg-white/80 px-4 py-4 md:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
-        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+    <footer className="surface-card border-t border-slate-200/80 bg-white/80 px-4 py-4 md:px-8">
+      <div className="flex w-full flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm font-semibold tracking-[0.06em] text-slate-700">
           Built by Viral Jain
         </p>
 

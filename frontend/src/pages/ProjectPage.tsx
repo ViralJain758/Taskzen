@@ -18,6 +18,8 @@ import toast from "react-hot-toast";
 import {
   closestCorners,
   DndContext,
+  DragOverlay,
+  type DragStartEvent,
   type DragEndEvent,
   KeyboardSensor,
   PointerSensor,
@@ -27,12 +29,20 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  defaultAnimateLayoutChanges,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "../components/ConfirmDialog";
+import {
+  enqueueCommentAction,
+  enqueueTaskAction,
+  getPendingOfflineAddedCommentIdsByTask,
+  getPendingOfflineActionCount,
+  syncOfflineActions,
+} from "../utils";
 
 type TaskStatus = "todo" | "in_progress" | "completed";
 
@@ -117,6 +127,7 @@ const SortableTaskCard = ({
   statusMenuTaskId,
   onStatusMenuOpen,
   onStatusChange,
+  pendingOfflineCommentIds,
 }: {
   task: Task;
   onAssigneeChange: (
@@ -139,6 +150,7 @@ const SortableTaskCard = ({
   statusMenuTaskId: string | null;
   onStatusMenuOpen: (taskId: string | null) => void;
   onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
+  pendingOfflineCommentIds: string[];
 }) => {
   const [newComment, setNewComment] = useState("");
 
@@ -149,7 +161,16 @@ const SortableTaskCard = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task._id, data: { status: task.status } });
+  } = useSortable({
+    id: task._id,
+    data: { status: task.status },
+    animateLayoutChanges: (args) =>
+      defaultAnimateLayoutChanges({ ...args, wasDragging: true }),
+    transition: {
+      duration: 220,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    },
+  });
 
   return (
     <div
@@ -162,7 +183,7 @@ const SortableTaskCard = ({
       {...listeners}
       className={`surface-card mb-3 cursor-grab rounded-xl p-3 transition active:cursor-grabbing ${
         isDragging
-          ? "opacity-60 ring-2 ring-sky-300"
+          ? "opacity-40 ring-2 ring-sky-300"
           : "hover:-translate-y-0.5 hover:border-sky-200 hover:shadow"
       }`}
     >
@@ -306,6 +327,9 @@ const SortableTaskCard = ({
               {comments.map((comment) => {
                 const canDeleteComment =
                   canModerateComments || comment.author._id === currentUserId;
+                const isPendingOffline = pendingOfflineCommentIds.includes(
+                  comment._id,
+                );
 
                 return (
                   <div
@@ -313,9 +337,16 @@ const SortableTaskCard = ({
                     className="rounded-md border border-slate-200 bg-slate-50 p-2"
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-semibold text-slate-700">
-                        {comment.author.name}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[11px] font-semibold text-slate-700">
+                          {comment.author.name}
+                        </p>
+                        {isPendingOffline && (
+                          <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Pending sync
+                          </span>
+                        )}
+                      </div>
                       {canDeleteComment && (
                         <button
                           type="button"
@@ -341,12 +372,30 @@ const SortableTaskCard = ({
   );
 };
 
+const DragGhostCard = ({ task }: { task: Task }) => {
+  return (
+    <div className="kanban-ghost surface-card w-[300px] rounded-xl border border-sky-300 bg-white/95 p-3">
+      <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+      {task.description && (
+        <p className="mt-1 line-clamp-2 text-xs text-slate-600">
+          {task.description}
+        </p>
+      )}
+      <div className="mt-2 inline-flex rounded-full bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+        {statusLabels[task.status]}
+      </div>
+    </div>
+  );
+};
+
 const DroppableColumn = ({
   status,
   children,
+  isBoardDragging,
 }: {
   status: TaskStatus;
   children: React.ReactNode;
+  isBoardDragging: boolean;
 }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: status,
@@ -357,7 +406,13 @@ const DroppableColumn = ({
     <div
       ref={setNodeRef}
       className={`rounded-2xl border p-4 transition ${statusStyles[status]} ${
-        isOver ? "ring-2 ring-sky-300" : ""
+        isBoardDragging
+          ? "border-sky-200/90 bg-gradient-to-b from-white/90 to-sky-50/55"
+          : ""
+      } ${
+        isOver
+          ? "kanban-drop-active ring-2 ring-sky-400 shadow-xl shadow-sky-200/70 scale-[1.015]"
+          : ""
       }`}
     >
       {children}
@@ -395,19 +450,33 @@ function ProjectPage() {
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
     null,
   );
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [statusMenuTaskId, setStatusMenuTaskId] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof window === "undefined" ? true : window.navigator.onLine,
+  );
+  const [isSyncingOfflineActions, setIsSyncingOfflineActions] = useState(false);
+  const [pendingOfflineActions, setPendingOfflineActions] = useState(0);
+  const [pendingOfflineCommentIdsByTask, setPendingOfflineCommentIdsByTask] =
+    useState<Record<string, string[]>>({});
   const preloadedCommentTaskIdsRef = useRef<Set<string>>(new Set());
 
-  const currentUserId = useMemo(() => {
+  const currentUser = useMemo(() => {
     try {
       const savedUser = localStorage.getItem("user");
       if (!savedUser) return null;
-      const parsed = JSON.parse(savedUser) as { _id?: string };
-      return parsed._id || null;
+      const parsed = JSON.parse(savedUser) as {
+        _id?: string;
+        name?: string;
+        email?: string;
+      };
+      return parsed;
     } catch {
       return null;
     }
   }, []);
+
+  const currentUserId = currentUser?._id || null;
 
   const currentUserWorkspaceRole = useMemo(() => {
     if (!currentUserId) return null;
@@ -425,6 +494,18 @@ function ProjectPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const refreshPendingOfflineActions = useCallback(() => {
+    if (!projectId) {
+      setPendingOfflineActions(0);
+      setPendingOfflineCommentIdsByTask({});
+      return;
+    }
+    setPendingOfflineActions(getPendingOfflineActionCount(projectId));
+    setPendingOfflineCommentIdsByTask(
+      getPendingOfflineAddedCommentIdsByTask(projectId),
+    );
+  }, [projectId]);
 
   const fetchTasks = useCallback(async (): Promise<Task[]> => {
     try {
@@ -445,6 +526,101 @@ function ProjectPage() {
       setTasks(data);
     });
   }, [fetchTasks]);
+
+  useEffect(() => {
+    refreshPendingOfflineActions();
+  }, [refreshPendingOfflineActions]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setIsOnline(true);
+    };
+
+    const onOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  const runOfflineSync = useCallback(async () => {
+    if (!projectId || !isOnline || isSyncingOfflineActions) return;
+
+    const queuedCount = getPendingOfflineActionCount(projectId);
+    if (queuedCount === 0) return;
+
+    const pendingCommentIdsByTaskBeforeSync =
+      getPendingOfflineAddedCommentIdsByTask(projectId);
+    const commentTaskIdsToRefresh = Object.keys(
+      pendingCommentIdsByTaskBeforeSync,
+    );
+
+    setIsSyncingOfflineActions(true);
+
+    try {
+      const result = await syncOfflineActions(projectId);
+
+      if (result.syncedCount > 0) {
+        const freshTasks = await fetchTasks();
+        setTasks(freshTasks);
+
+        if (commentTaskIdsToRefresh.length > 0) {
+          const refreshedComments = await Promise.all(
+            commentTaskIdsToRefresh.map(async (taskId) => ({
+              taskId,
+              comments: await getTaskComments(taskId),
+            })),
+          );
+
+          setCommentsByTask((prev) => {
+            const next = { ...prev };
+            refreshedComments.forEach(({ taskId, comments }) => {
+              next[taskId] = comments;
+              preloadedCommentTaskIdsRef.current.add(taskId);
+            });
+            return next;
+          });
+        }
+      }
+
+      refreshPendingOfflineActions();
+
+      if (result.syncedCount > 0) {
+        toast.success(`Synced ${result.syncedCount} offline change(s)`);
+      }
+
+      if (result.conflictCount > 0) {
+        toast(
+          `${result.conflictCount} change(s) resolved with last-write-wins`,
+          {
+            icon: "⚠️",
+          },
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSyncingOfflineActions(false);
+      refreshPendingOfflineActions();
+    }
+  }, [
+    fetchTasks,
+    isOnline,
+    isSyncingOfflineActions,
+    projectId,
+    refreshPendingOfflineActions,
+  ]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    void runOfflineSync();
+  }, [isOnline, runOfflineSync]);
 
   useEffect(() => {
     const taskIdsInBoard = new Set(tasks.map((task) => task._id));
@@ -516,6 +692,11 @@ function ProjectPage() {
     const taskTitle = title.trim();
     const taskDescription = description.trim();
     if (!taskTitle || !projectId || isCreating) return;
+    const createPayload = {
+      title: taskTitle,
+      description: taskDescription || undefined,
+      assignee: assigneeId || undefined,
+    };
 
     let optimisticCreator: Task["createdBy"];
     try {
@@ -551,12 +732,23 @@ function ProjectPage() {
     setTitle("");
     setIsCreating(true);
 
-    try {
-      const res = await createTask(projectId, {
-        title: taskTitle,
-        description: taskDescription || undefined,
-        assignee: assigneeId || undefined,
+    if (!isOnline) {
+      enqueueTaskAction({
+        projectId,
+        type: "CREATE_TASK",
+        taskId: tempId,
+        payload: createPayload,
       });
+      setAssigneeId("");
+      setDescription("");
+      setIsCreating(false);
+      refreshPendingOfflineActions();
+      toast("Saved offline. Task will sync automatically.", { icon: "📦" });
+      return;
+    }
+
+    try {
+      const res = await createTask(projectId, createPayload);
 
       if (res.task) {
         const createdTask = res.task;
@@ -589,6 +781,24 @@ function ProjectPage() {
     setTasks((prev) =>
       prev.map((t) => (t._id === taskId ? { ...t, status } : t)),
     );
+
+    if (!projectId) {
+      setUpdatingTaskId(null);
+      return;
+    }
+
+    if (!isOnline) {
+      enqueueTaskAction({
+        projectId,
+        type: "UPDATE_TASK_STATUS",
+        taskId,
+        payload: { status },
+      });
+      setUpdatingTaskId(null);
+      refreshPendingOfflineActions();
+      toast("Saved offline. Status change will sync.", { icon: "📦" });
+      return;
+    }
 
     try {
       const res = await updateTaskStatus(taskId, status);
@@ -635,6 +845,24 @@ function ProjectPage() {
           : task,
       ),
     );
+
+    if (!projectId) {
+      setUpdatingTaskId(null);
+      return;
+    }
+
+    if (!isOnline) {
+      enqueueTaskAction({
+        projectId,
+        type: "UPDATE_TASK_ASSIGNEE",
+        taskId,
+        payload: { assignee: nextAssigneeId },
+      });
+      setUpdatingTaskId(null);
+      refreshPendingOfflineActions();
+      toast("Saved offline. Assignee update will sync.", { icon: "📦" });
+      return;
+    }
 
     try {
       const res = await updateTaskAssignee(taskId, nextAssigneeId);
@@ -697,10 +925,52 @@ function ProjectPage() {
 
   const handleAddComment = async (taskId: string, content: string) => {
     if (!content.trim()) return;
+    const trimmedContent = content.trim();
+
+    if (!projectId) return;
+
+    if (!isOnline) {
+      const tempCommentId = `temp-comment-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      const optimisticComment: TaskComment = {
+        _id: tempCommentId,
+        content: trimmedContent,
+        task: taskId,
+        author: {
+          _id: currentUserId || "offline-user",
+          name: currentUser?.name || "You",
+          email: currentUser?.email || "offline@local",
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      setCommentsByTask((prev) => {
+        const existing = prev[taskId] || [];
+        return {
+          ...prev,
+          [taskId]: [optimisticComment, ...existing],
+        };
+      });
+      preloadedCommentTaskIdsRef.current.add(taskId);
+
+      enqueueCommentAction({
+        projectId,
+        type: "ADD_COMMENT",
+        taskId,
+        commentId: tempCommentId,
+        payload: { content: trimmedContent },
+      });
+
+      refreshPendingOfflineActions();
+      toast("Saved offline. Comment will sync.", { icon: "📦" });
+      return;
+    }
 
     try {
       setAddingCommentTaskId(taskId);
-      const res = await addTaskComment(taskId, content.trim());
+      const res = await addTaskComment(taskId, trimmedContent);
       if (res.comment) {
         setCommentsByTask((prev) => {
           const existing = prev[taskId] || [];
@@ -728,8 +998,32 @@ function ProjectPage() {
   };
 
   const handleDeleteComment = async (taskId: string, commentId: string) => {
+    if (!projectId) return;
+
     try {
       setDeletingCommentId(commentId);
+
+      if (!isOnline) {
+        setCommentsByTask((prev) => ({
+          ...prev,
+          [taskId]: (prev[taskId] || []).filter(
+            (comment) => comment._id !== commentId,
+          ),
+        }));
+
+        enqueueCommentAction({
+          projectId,
+          type: "DELETE_COMMENT",
+          taskId,
+          commentId,
+          payload: {},
+        });
+
+        refreshPendingOfflineActions();
+        toast("Saved offline. Comment deletion will sync.", { icon: "📦" });
+        return;
+      }
+
       await deleteTaskComment(commentId);
       setCommentsByTask((prev) => ({
         ...prev,
@@ -753,6 +1047,33 @@ function ProjectPage() {
     setIsDeletingTask(true);
     setUpdatingTaskId(taskToDelete.id);
     setTasks((prev) => prev.filter((task) => task._id !== taskToDelete.id));
+
+    if (!projectId) {
+      setIsDeletingTask(false);
+      setUpdatingTaskId(null);
+      return;
+    }
+
+    if (!isOnline) {
+      enqueueTaskAction({
+        projectId,
+        type: "DELETE_TASK",
+        taskId: taskToDelete.id,
+        payload: {},
+      });
+      setCommentsByTask((prev) => {
+        const next = { ...prev };
+        delete next[taskToDelete.id];
+        return next;
+      });
+      preloadedCommentTaskIdsRef.current.delete(taskToDelete.id);
+      setTaskToDelete(null);
+      setIsDeletingTask(false);
+      setUpdatingTaskId(null);
+      refreshPendingOfflineActions();
+      toast("Saved offline. Task deletion will sync.", { icon: "📦" });
+      return;
+    }
 
     try {
       await deleteTask(taskToDelete.id);
@@ -791,9 +1112,21 @@ function ProjectPage() {
 
   const hasNoTasks = !isLoading && tasks.length === 0;
   const hasNoAssignees = assignees.length === 0;
+  const activeTask = activeTaskId
+    ? tasks.find((task) => task._id === activeTaskId) || null
+    : null;
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(String(event.active.id));
+  };
+
+  const handleDragCancel = () => {
+    setActiveTaskId(null);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveTaskId(null);
     if (!over) return;
 
     const activeTaskId = String(active.id);
@@ -920,6 +1253,23 @@ function ProjectPage() {
         Drag tasks across columns and assign owners directly from each card.
       </p>
 
+      {!isOnline && (
+        <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800">
+          You are offline - changes will sync automatically once reconnected.
+          {pendingOfflineActions > 0
+            ? ` Pending: ${pendingOfflineActions}`
+            : ""}
+        </div>
+      )}
+
+      {isOnline && pendingOfflineActions > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+          {isSyncingOfflineActions
+            ? "Back online - syncing your offline changes..."
+            : `${pendingOfflineActions} offline change(s) queued. Sync will run automatically.`}
+        </div>
+      )}
+
       <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 md:flex-row md:items-start md:p-4">
         <div className="flex w-full max-w-md flex-col gap-2">
           <input
@@ -995,11 +1345,17 @@ function ProjectPage() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
           >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
               {columns.map((status) => (
-                <DroppableColumn key={status} status={status}>
+                <DroppableColumn
+                  key={status}
+                  status={status}
+                  isBoardDragging={Boolean(activeTaskId)}
+                >
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
                       {statusLabels[status]}
@@ -1034,6 +1390,9 @@ function ProjectPage() {
                         statusMenuTaskId={statusMenuTaskId}
                         onStatusMenuOpen={setStatusMenuTaskId}
                         onStatusChange={moveTask}
+                        pendingOfflineCommentIds={
+                          pendingOfflineCommentIdsByTask[task._id] || []
+                        }
                       />
                     ))}
                   </SortableContext>
@@ -1046,6 +1405,10 @@ function ProjectPage() {
                 </DroppableColumn>
               ))}
             </div>
+
+            <DragOverlay adjustScale={false}>
+              {activeTask ? <DragGhostCard task={activeTask} /> : null}
+            </DragOverlay>
           </DndContext>
         </>
       )}

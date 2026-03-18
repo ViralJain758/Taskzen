@@ -56,11 +56,11 @@ function WorkspacePage() {
   >(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [membersPage, setMembersPage] = useState(1);
-  const [membersLimit] = useState(8);
+  const [membersLimit] = useState(4);
   const [membersPagination, setMembersPagination] =
     useState<MembersPaginationMeta>({
       page: 1,
-      limit: 8,
+      limit: 4,
       total: 0,
       totalPages: 1,
       hasNextPage: false,
@@ -80,11 +80,11 @@ function WorkspacePage() {
   } | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
-  const [activitiesLimit] = useState(10);
+  const [activitiesLimit] = useState(4);
   const [activitiesPagination, setActivitiesPagination] =
     useState<ActivityPaginationMeta>({
       page: 1,
-      limit: 10,
+      limit: 4,
       total: 0,
       totalPages: 1,
       hasNextPage: false,
@@ -481,7 +481,7 @@ function WorkspacePage() {
               No activity yet in this workspace.
             </p>
           ) : (
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+            <div className="space-y-2">
               {activities.map((activity) => (
                 <div
                   key={activity._id}

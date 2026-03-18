@@ -46,7 +46,7 @@ function Landing() {
       </div>
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-6 sm:gap-8">
-        <header className="surface-card flex flex-col gap-4 rounded-2xl px-3 py-3 sm:px-4 md:flex-row md:items-center md:justify-between md:px-6">
+        <header className="surface-card layer-soft depth-1 flex flex-col gap-4 rounded-2xl px-3 py-3 sm:px-4 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
               Taskzen
@@ -65,13 +65,13 @@ function Landing() {
               <>
                 <Link
                   to="/register"
-                  className="rounded-lg bg-sky-600 px-3 py-1.5 text-center text-sm font-semibold text-white transition hover:bg-sky-700"
+                  className="micro-action rounded-lg bg-sky-600 px-3 py-1.5 text-center text-sm font-semibold text-white transition hover:bg-sky-700"
                 >
                   Start organizing now
                 </Link>
                 <Link
                   to="/login"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  className="micro-action rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Continue where I left off
                 </Link>
@@ -81,7 +81,7 @@ function Landing() {
         </header>
 
         <section className="grid gap-4 sm:gap-6 md:grid-cols-[1.18fr_1fr]">
-          <div className="surface-card relative overflow-hidden rounded-3xl p-4 sm:p-6 md:p-8">
+          <div className="surface-card layer-warm depth-3 relative overflow-hidden rounded-3xl p-4 sm:p-6 md:p-8">
             <div className="pointer-events-none absolute right-0 top-0 h-36 w-36 rounded-full bg-sky-200/50 blur-2xl" />
             <div className="pointer-events-none absolute bottom-0 left-0 h-28 w-28 rounded-full bg-orange-200/50 blur-2xl" />
 
@@ -101,7 +101,7 @@ function Landing() {
             <div className="mt-6 flex flex-wrap gap-2 sm:gap-3">
               <Link
                 to={hasToken ? "/dashboard" : "/register"}
-                className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700 sm:px-4 sm:py-2.5 sm:text-sm"
+                className="micro-action rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700 sm:px-4 sm:py-2.5 sm:text-sm"
               >
                 {hasToken
                   ? "Go run today's plan"
@@ -109,7 +109,7 @@ function Landing() {
               </Link>
             </div>
 
-            <div className="mt-6 grid gap-2 rounded-2xl border border-slate-200 bg-white/70 p-2 sm:gap-3 sm:p-3 md:grid-cols-3">
+            <div className="layer-soft depth-1 mt-6 grid gap-2 rounded-2xl border border-slate-200 p-2 sm:gap-3 sm:p-3 md:grid-cols-3">
               {(Object.keys(highlights) as HighlightKey[]).map((key) => (
                 <button
                   key={key}
@@ -126,7 +126,7 @@ function Landing() {
               ))}
             </div>
 
-            <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-900 p-3 text-white sm:p-4">
+            <div className="depth-2 mt-3 rounded-2xl border border-slate-700 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-3 text-white sm:p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-sky-200">
                 {activeCard.badge}
               </p>
@@ -142,7 +142,7 @@ function Landing() {
           <div className="grid gap-3 sm:gap-4">
             <div
               id="live-board-preview"
-              className="surface-card rounded-2xl p-3 sm:p-4"
+              className="surface-card layer-cool depth-2 rounded-2xl p-3 sm:p-4"
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
@@ -167,7 +167,7 @@ function Landing() {
               </div>
             </div>
 
-            <div className="surface-card rounded-2xl p-3 sm:p-4">
+            <div className="surface-card layer-soft depth-1 rounded-2xl p-3 sm:p-4">
               <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
                 Why teams switch
               </p>
