@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import axios from "axios";
 import api, { setAuthToken } from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,6 +10,12 @@ function Login() {
   const navigate = useNavigate();
   const auth = useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (auth?.token) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [auth?.token, navigate]);
 
   const [form, setForm] = useState({
     email: "",

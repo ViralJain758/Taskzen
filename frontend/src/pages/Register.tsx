@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import api from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import type { ApiErrorResponse } from "../types/api.ts";
 import toast from "react-hot-toast";
+import { AuthContext } from "../context/auth-context.ts";
 
 function Register() {
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (auth?.token) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [auth?.token, navigate]);
 
   const [form, setForm] = useState({
     name: "",

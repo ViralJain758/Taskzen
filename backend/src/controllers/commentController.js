@@ -2,6 +2,7 @@ import Comment from "../models/Comment.js";
 import Task from "../models/Task.js";
 import Notification from "../models/Notification.js";
 import Membership from "../models/Membership.js";
+import Activity from "../models/Activity.js";
 
 export const addComment = async (req, res) => {
   try {
@@ -40,6 +41,26 @@ export const addComment = async (req, res) => {
         projectId: task.project._id.toString(),
         taskId,
         comment: populatedComment,
+      });
+
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: task.project.workspace,
+      project: task.project._id,
+      projectName: task.project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} commented on task "${task.title}"`,
+      type: "comment_added",
+      task: task._id,
+      taskTitle: task.title,
+    });
+
+    req.io
+      .to(`workspace:${task.project.workspace.toString()}`)
+      .emit("workspace:activity_created", {
+        workspaceId: task.project.workspace.toString(),
+        activity,
       });
 
     if (task.createdBy.toString() !== req.user._id.toString()) {
@@ -91,7 +112,7 @@ export const deleteComment = async (req, res) => {
       path: "task",
       populate: {
         path: "project",
-        select: "workspace",
+        select: "workspace name",
       },
     });
 
@@ -117,6 +138,27 @@ export const deleteComment = async (req, res) => {
     }
 
     await comment.deleteOne();
+
+    const actorName = req.user?.name || "Someone";
+    const projectName = comment.task.project.name || "Project";
+    const activity = await Activity.create({
+      workspace: comment.task.project.workspace,
+      project: comment.task.project._id,
+      projectName,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} deleted a comment on a task`,
+      type: "comment_deleted",
+      task: comment.task._id,
+      taskTitle: comment.task.title,
+    });
+
+    req.io
+      .to(`workspace:${comment.task.project.workspace.toString()}`)
+      .emit("workspace:activity_created", {
+        workspaceId: comment.task.project.workspace.toString(),
+        activity,
+      });
 
     req.io
       .to(`project:${comment.task.project._id.toString()}`)

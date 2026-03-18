@@ -58,25 +58,22 @@ function Landing() {
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
             {hasToken ? (
-              <Link
-                to="/dashboard"
-                className="rounded-lg bg-sky-600 px-3 py-1.5 text-center text-sm font-semibold text-white transition hover:bg-sky-700"
-              >
-                Open dashboard
-              </Link>
+              <span className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center text-sm font-semibold text-emerald-700">
+                You are signed in
+              </span>
             ) : (
               <>
                 <Link
                   to="/register"
                   className="rounded-lg bg-sky-600 px-3 py-1.5 text-center text-sm font-semibold text-white transition hover:bg-sky-700"
                 >
-                  Create account
+                  Start organizing now
                 </Link>
                 <Link
                   to="/login"
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  I already have an account
+                  Continue where I left off
                 </Link>
               </>
             )}
@@ -92,13 +89,13 @@ function Landing() {
               Project control room
             </p>
             <h2 className="mt-3 text-2xl font-black leading-tight tracking-tight text-slate-900 sm:text-4xl md:text-6xl">
-              Focus your team.
+              Start organizing your team.
               <br />
-              Ship without chaos.
+              Ship faster, starting now.
             </h2>
             <p className="mt-4 max-w-2xl text-xs text-slate-600 sm:text-sm md:text-base">
-              Move faster with a workspace built for ownership, visibility, and
-              realtime delivery.
+              Turn scattered updates into focused momentum with one workspace
+              built for ownership, visibility, and realtime delivery.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2 sm:gap-3">
@@ -106,13 +103,9 @@ function Landing() {
                 to={hasToken ? "/dashboard" : "/register"}
                 className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-700 sm:px-4 sm:py-2.5 sm:text-sm"
               >
-                {hasToken ? "Go to dashboard" : "Create account"}
-              </Link>
-              <Link
-                to="/login"
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 sm:px-4 sm:py-2.5 sm:text-sm"
-              >
-                I already have access
+                {hasToken
+                  ? "Go run today's plan"
+                  : "Start organizing your team now"}
               </Link>
             </div>
 
@@ -147,7 +140,10 @@ function Landing() {
           </div>
 
           <div className="grid gap-3 sm:gap-4">
-            <div className="surface-card rounded-2xl p-3 sm:p-4">
+            <div
+              id="live-board-preview"
+              className="surface-card rounded-2xl p-3 sm:p-4"
+            >
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">
                   Live Board Preview

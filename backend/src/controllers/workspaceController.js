@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 import Notification from "../models/Notification.js";
+import Activity from "../models/Activity.js";
 
 export const createWorkspace = async (req, res) => {
   try {
@@ -101,6 +102,22 @@ export const inviteMember = async (req, res) => {
       });
     }
 
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: workspaceId,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} added ${user.name} to workspace`,
+      type: "member_added",
+      targetUser: user._id,
+      targetUserName: user.name,
+    });
+
+    req.io.to(`workspace:${workspaceId}`).emit("workspace:activity_created", {
+      workspaceId,
+      activity,
+    });
+
     res.status(201).json({
       message: "User added to workspace",
       membership,
@@ -115,10 +132,24 @@ export const inviteMember = async (req, res) => {
 export const getWorkspaceMembers = async (req, res) => {
   try {
     const { workspaceId } = req.params;
+    const parsedPage = Number.parseInt(String(req.query.page || "1"), 10);
+    const parsedLimit = Number.parseInt(String(req.query.limit || "10"), 10);
+    const page = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+    const limit = Number.isNaN(parsedLimit)
+      ? 10
+      : Math.min(Math.max(parsedLimit, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const totalMemberships = await Membership.countDocuments({
+      workspace: workspaceId,
+    });
 
     const memberships = await Membership.find({
       workspace: workspaceId,
-    }).populate("user", "name email");
+    })
+      .populate("user", "name email")
+      .skip(skip)
+      .limit(limit);
 
     const members = memberships
       .filter((membership) => membership.user)
@@ -131,11 +162,22 @@ export const getWorkspaceMembers = async (req, res) => {
         role: membership.role,
       }));
 
+    const total = totalMemberships;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
     res.json({
       members,
       requesterRole: req.membership.role,
       canManageMembers: ["owner", "admin"].includes(req.membership.role),
       canManageRoles: req.membership.role === "owner",
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -180,6 +222,22 @@ export const updateWorkspaceMemberRole = async (req, res) => {
 
     targetMembership.role = role;
     await targetMembership.save();
+
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: workspaceId,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} changed ${targetMembership.user.name}'s role to ${role}`,
+      type: "member_role_updated",
+      targetUser: targetMembership.user._id,
+      targetUserName: targetMembership.user.name,
+    });
+
+    req.io.to(`workspace:${workspaceId}`).emit("workspace:activity_created", {
+      workspaceId,
+      activity,
+    });
 
     res.json({
       message: "Member role updated successfully",
@@ -227,6 +285,24 @@ export const removeWorkspaceMember = async (req, res) => {
     }
 
     await targetMembership.deleteOne();
+
+    const removedUser = await User.findById(memberId).select("name");
+    const actorName = req.user?.name || "Someone";
+    const removedName = removedUser?.name || "a member";
+    const activity = await Activity.create({
+      workspace: workspaceId,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} removed ${removedName} from workspace`,
+      type: "member_removed",
+      targetUser: memberId,
+      targetUserName: removedName,
+    });
+
+    req.io.to(`workspace:${workspaceId}`).emit("workspace:activity_created", {
+      workspaceId,
+      activity,
+    });
 
     res.json({
       message: "Member removed successfully",

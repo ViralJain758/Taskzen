@@ -44,4 +44,12 @@ export const leaveProjectRoom = (projectId: string) => {
   socket.emit("leaveProject", projectId);
 };
 
+export const joinWorkspaceRoom = (workspaceId: string) => {
+  socket.emit("joinWorkspace", workspaceId);
+};
+
+export const leaveWorkspaceRoom = (workspaceId: string) => {
+  socket.emit("leaveWorkspace", workspaceId);
+};
+
 export default socket;

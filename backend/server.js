@@ -14,6 +14,7 @@ import projectRoutes from "./src/routes/projectRoutes.js";
 import taskRoutes from "./src/routes/taskRoutes.js";
 import commentRoutes from "./src/routes/commentRoutes.js";
 import notificationRoutes from "./src/routes/notificationRoutes.js";
+import activityRoutes from "./src/routes/activityRoutes.js";
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/activities", activityRoutes);
 
 const server = http.createServer(app);
 

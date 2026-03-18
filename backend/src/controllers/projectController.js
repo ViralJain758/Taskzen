@@ -1,6 +1,7 @@
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 import Membership from "../models/Membership.js";
+import Activity from "../models/Activity.js";
 
 export const createProject = async (req, res) => {
   try {
@@ -18,6 +19,22 @@ export const createProject = async (req, res) => {
       description,
       workspace: workspaceId,
       createdBy: req.user._id,
+    });
+
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: workspaceId,
+      project: project._id,
+      projectName: project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} created project "${project.name}"`,
+      type: "project_created",
+    });
+
+    req.io.to(`workspace:${workspaceId}`).emit("workspace:activity_created", {
+      workspaceId,
+      activity,
     });
 
     res.status(201).json({
@@ -96,6 +113,23 @@ export const deleteProject = async (req, res) => {
     }
 
     await Task.deleteMany({ project: projectId });
+
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: workspaceId,
+      project: project._id,
+      projectName: project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} deleted project "${project.name}"`,
+      type: "project_deleted",
+    });
+
+    req.io.to(`workspace:${workspaceId}`).emit("workspace:activity_created", {
+      workspaceId,
+      activity,
+    });
+
     await project.deleteOne();
 
     res.json({

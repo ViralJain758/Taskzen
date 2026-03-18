@@ -1,5 +1,14 @@
 import api from "./api";
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export const getWorkspaces = async () => {
   const res = await api.get("/workspaces");
   return res.data;
@@ -15,8 +24,14 @@ export const deleteWorkspace = async (workspaceId: string) => {
   return res.data;
 };
 
-export const getWorkspaceMembers = async (workspaceId: string) => {
-  const res = await api.get(`/workspaces/${workspaceId}/members`);
+export const getWorkspaceMembers = async (
+  workspaceId: string,
+  page = 1,
+  limit = 10,
+) => {
+  const res = await api.get(`/workspaces/${workspaceId}/members`, {
+    params: { page, limit },
+  });
   return res.data;
 };
 

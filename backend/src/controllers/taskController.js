@@ -2,6 +2,13 @@ import Task from "../models/Task.js";
 import Project from "../models/Project.js";
 import Notification from "../models/Notification.js";
 import Membership from "../models/Membership.js";
+import Activity from "../models/Activity.js";
+
+const statusLabels = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  completed: "Done",
+};
 
 export const createTask = async (req, res) => {
   try {
@@ -41,12 +48,54 @@ export const createTask = async (req, res) => {
       task: populatedTask,
     });
 
+    const actorName = req.user?.name || "Someone";
+    const createdActivity = await Activity.create({
+      workspace: project.workspace,
+      project: project._id,
+      projectName: project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} created task "${task.title}"`,
+      type: "task_created",
+      task: task._id,
+      taskTitle: task.title,
+    });
+
+    req.io
+      .to(`workspace:${project.workspace.toString()}`)
+      .emit("workspace:activity_created", {
+        workspaceId: project.workspace.toString(),
+        activity: createdActivity,
+      });
+
     if (assignee) {
       await Notification.create({
         user: assignee,
         message: "You were assigned a task",
         type: "task",
       });
+
+      const assigneeName = populatedTask.assignee?.name || "a member";
+      const assignedActivity = await Activity.create({
+        workspace: project.workspace,
+        project: project._id,
+        projectName: project.name,
+        actor: req.user._id,
+        actorName,
+        message: `${actorName} assigned task "${task.title}" to ${assigneeName}`,
+        type: "task_assigned",
+        task: task._id,
+        taskTitle: task.title,
+        targetUser: assignee,
+        targetUserName: assigneeName,
+      });
+
+      req.io
+        .to(`workspace:${project.workspace.toString()}`)
+        .emit("workspace:activity_created", {
+          workspaceId: project.workspace.toString(),
+          activity: assignedActivity,
+        });
 
       req.io.to(assignee.toString()).emit("notification", {
         message: "You were assigned a task",
@@ -129,6 +178,26 @@ export const updateTaskStatus = async (req, res) => {
       });
     }
 
+    const existingTask = await Task.findById(taskId).populate("project");
+
+    if (!existingTask) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    if (existingTask.status === status) {
+      const unchangedTask = await Task.findById(taskId)
+        .populate("project")
+        .populate("assignee", "name email")
+        .populate("createdBy", "name email");
+
+      return res.json({
+        message: "Task status unchanged",
+        task: unchangedTask,
+      });
+    }
+
     const task = await Task.findByIdAndUpdate(taskId, { status }, { new: true })
       .populate("project")
       .populate("assignee", "name email")
@@ -146,6 +215,33 @@ export const updateTaskStatus = async (req, res) => {
       projectId,
       task,
     });
+
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: task.project.workspace,
+      project: projectId,
+      projectName: task.project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} moved task \"${task.title}\" to ${statusLabels[status]}`,
+      type: "task_status",
+      task: task._id,
+      taskTitle: task.title,
+      fromStatus: existingTask.status,
+      toStatus: status,
+    });
+
+    req.io.to(`project:${projectId}`).emit("project:activity_created", {
+      projectId,
+      activity,
+    });
+
+    req.io
+      .to(`workspace:${task.project.workspace.toString()}`)
+      .emit("workspace:activity_created", {
+        workspaceId: task.project.workspace.toString(),
+        activity,
+      });
 
     res.json({
       message: "Task status updated",
@@ -201,6 +297,29 @@ export const updateTask = async (req, res) => {
         type: "task",
       });
 
+      const actorName = req.user?.name || "Someone";
+      const assigneeName = updatedTask.assignee?.name || "a member";
+      const activity = await Activity.create({
+        workspace: updatedTask.project.workspace,
+        project: updatedTask.project._id,
+        projectName: updatedTask.project.name,
+        actor: req.user._id,
+        actorName,
+        message: `${actorName} assigned task "${updatedTask.title}" to ${assigneeName}`,
+        type: "task_assigned",
+        task: updatedTask._id,
+        taskTitle: updatedTask.title,
+        targetUser: updates.assignee,
+        targetUserName: assigneeName,
+      });
+
+      req.io
+        .to(`workspace:${updatedTask.project.workspace.toString()}`)
+        .emit("workspace:activity_created", {
+          workspaceId: updatedTask.project.workspace.toString(),
+          activity,
+        });
+
       req.io.to(updates.assignee.toString()).emit("notification", {
         message: "You were assigned a task",
       });
@@ -231,12 +350,32 @@ export const deleteTask = async (req, res) => {
 
     const projectId = task.project._id.toString();
 
+    const actorName = req.user?.name || "Someone";
+    const activity = await Activity.create({
+      workspace: task.project.workspace,
+      project: task.project._id,
+      projectName: task.project.name,
+      actor: req.user._id,
+      actorName,
+      message: `${actorName} deleted task "${task.title}"`,
+      type: "task_deleted",
+      task: task._id,
+      taskTitle: task.title,
+    });
+
     await task.deleteOne();
 
     req.io.to(`project:${projectId}`).emit("project:task_deleted", {
       projectId,
       taskId: task._id.toString(),
     });
+
+    req.io
+      .to(`workspace:${task.project.workspace.toString()}`)
+      .emit("workspace:activity_created", {
+        workspaceId: task.project.workspace.toString(),
+        activity,
+      });
 
     res.json({
       message: "Task deleted successfully",
