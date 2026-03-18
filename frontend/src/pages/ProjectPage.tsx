@@ -114,6 +114,9 @@ const SortableTaskCard = ({
   onToggleComments,
   onAddComment,
   onDeleteComment,
+  statusMenuTaskId,
+  onStatusMenuOpen,
+  onStatusChange,
 }: {
   task: Task;
   onAssigneeChange: (
@@ -133,6 +136,9 @@ const SortableTaskCard = ({
   onToggleComments: (taskId: string) => void;
   onAddComment: (taskId: string, content: string) => Promise<void>;
   onDeleteComment: (taskId: string, commentId: string) => Promise<void>;
+  statusMenuTaskId: string | null;
+  onStatusMenuOpen: (taskId: string | null) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
 }) => {
   const [newComment, setNewComment] = useState("");
 
@@ -175,6 +181,44 @@ const SortableTaskCard = ({
         >
           Delete
         </button>
+      </div>
+
+      <div className="mb-2 block md:hidden">
+        <button
+          type="button"
+          onClick={() =>
+            onStatusMenuOpen(statusMenuTaskId === task._id ? null : task._id)
+          }
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          className="w-full rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+          disabled={isUpdating}
+        >
+          {statusLabels[task.status]}
+        </button>
+        {statusMenuTaskId === task._id && (
+          <div className="mt-1 space-y-1">
+            {columns
+              .filter((status) => status !== task.status)
+              .map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => {
+                    void onStatusChange(task._id, status);
+                    onStatusMenuOpen(null);
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Move to {statusLabels[status]}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {task.description && (
@@ -351,6 +395,7 @@ function ProjectPage() {
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
     null,
   );
+  const [statusMenuTaskId, setStatusMenuTaskId] = useState<string | null>(null);
   const preloadedCommentTaskIdsRef = useRef<Set<string>>(new Set());
 
   const currentUserId = useMemo(() => {
@@ -986,6 +1031,9 @@ function ProjectPage() {
                         onToggleComments={toggleComments}
                         onAddComment={handleAddComment}
                         onDeleteComment={handleDeleteComment}
+                        statusMenuTaskId={statusMenuTaskId}
+                        onStatusMenuOpen={setStatusMenuTaskId}
+                        onStatusChange={moveTask}
                       />
                     ))}
                   </SortableContext>

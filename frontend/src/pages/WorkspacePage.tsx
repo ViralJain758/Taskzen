@@ -221,21 +221,21 @@ function WorkspacePage() {
   };
 
   return (
-    <div className="fade-up space-y-5">
+    <div className="fade-up space-y-4 sm:space-y-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
           Workspace
         </p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
           Projects
         </h1>
       </div>
-      <p className="text-sm text-slate-600">
+      <p className="text-xs text-slate-600 sm:text-sm">
         Select a project to open its task board, or create a new one below.
       </p>
 
-      <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 md:flex-row md:items-start md:p-4">
-        <div className="w-full max-w-md space-y-2">
+      <div className="surface-card flex flex-col gap-2 rounded-2xl p-3 sm:gap-3 sm:p-4 lg:flex-row lg:items-start">
+        <div className="w-full space-y-2 sm:max-w-md">
           <input
             type="text"
             placeholder="New project"
@@ -246,20 +246,20 @@ function WorkspacePage() {
                 void handleCreate();
               }
             }}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 sm:px-3 sm:py-2.5 sm:text-sm"
           />
           <textarea
             placeholder="Project description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 sm:px-3 sm:py-2.5 sm:text-sm"
           />
         </div>
         <button
           type="button"
           onClick={handleCreate}
-          className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white shadow transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400 sm:px-4 sm:py-2.5 sm:text-sm"
           disabled={!name.trim() || !workspaceId || isCreating}
         >
           {isCreating ? "Creating..." : "Create Project"}
@@ -267,19 +267,21 @@ function WorkspacePage() {
       </div>
 
       {isLoading ? (
-        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-4 text-xs text-slate-500 sm:p-6 sm:text-sm">
           Loading projects...
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {projects.map((p) => (
             <div
               key={p._id}
               onClick={() => navigate(`/project/${p._id}`)}
-              className="surface-card cursor-pointer rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg"
+              className="surface-card cursor-pointer rounded-2xl p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg sm:p-5"
             >
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-bold text-slate-900">{p.name}</h2>
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+                  {p.name}
+                </h2>
                 {canManageMembers && (
                   <button
                     type="button"
@@ -287,7 +289,7 @@ function WorkspacePage() {
                       e.stopPropagation();
                       setProjectToDelete({ id: p._id, name: p.name });
                     }}
-                    className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                    className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
                   >
                     Delete
                   </button>

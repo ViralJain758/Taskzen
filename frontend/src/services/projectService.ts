@@ -13,6 +13,11 @@ export const createProject = async (
   return res.data;
 };
 
+export const getProjectById = async (projectId: string) => {
+  const res = await api.get(`/projects/detail/${projectId}`);
+  return res.data;
+};
+
 export const deleteProject = async (workspaceId: string, projectId: string) => {
   const res = await api.delete(`/projects/${workspaceId}/${projectId}`);
   return res.data;

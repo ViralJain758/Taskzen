@@ -4,10 +4,13 @@ import { authorizeWorkspaceRole } from "../middleware/workspaceRoleMiddleware.js
 import {
   createProject,
   getWorkspaceProjects,
+  getProjectById,
   deleteProject,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
+
+router.get("/detail/:projectId", protect, getProjectById);
 
 router.post(
   "/:workspaceId",
