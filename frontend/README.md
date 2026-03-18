@@ -1,6 +1,11 @@
-# Taskzen Frontend
+## Frontend Overview
 
-Taskzen frontend is a React + TypeScript single-page application for collaborative workspace and project management. It includes realtime task board updates, role-aware workspace interactions, and in-app notifications.
+A high-performance React application designed for real-time collaboration, featuring:
+
+- Live task updates via WebSockets
+- Optimistic UI with TanStack Query
+- Offline-first task interactions
+- Drag-and-drop Kanban interface
 
 ## Stack
 

@@ -1,6 +1,13 @@
-# Taskzen Backend
+## Backend Overview
 
-Taskzen backend is a Node.js API built with Express, MongoDB, and Socket.IO. It provides authentication, workspace/project/task/comment management, and real-time collaboration events.
+A scalable Node.js API powering a real-time collaborative SaaS platform.
+
+Key capabilities:
+
+- JWT-based authentication and role-based authorization
+- Event-driven real-time system using Socket.IO
+- Multi-tenant workspace architecture
+- Smart Insights generation for project analytics
 
 ## Stack
 
@@ -51,14 +58,13 @@ Taskzen backend is a Node.js API built with Express, MongoDB, and Socket.IO. It 
 
 Create backend/.env:
 
-MONGO_URI_ATLAS=your_mongodb_atlas_connection_string
-
+```
 # Optional fallback for local/non-Atlas setups:
-
-# MONGO_URI=mongodb://127.0.0.1:27017/taskzen
-
+MONGO_URI=mongodb://127.0.0.1:27017/taskzen
+MONGO_URI_ATLAS=your_mongodb_atlas_connection_string
 JWT_SECRET=your_jwt_secret
 PORT=5000
+```
 
 ### MongoDB Atlas Setup (Recommended)
 

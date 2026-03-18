@@ -1,26 +1,51 @@
-# Taskzen
+# Taskzen — Real-Time Collaborative Task Management SaaS
 
-Taskzen is a full-stack collaborative task management platform focused on workspace-driven planning, role-based collaboration, and real-time task updates.
+![React](https://img.shields.io/badge/Frontend-React-blue)
+![Node](https://img.shields.io/badge/Backend-Node.js-green)
+![Socket.IO](https://img.shields.io/badge/Realtime-Socket.IO-black)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-The repository is organized as a monorepo with separate frontend and backend applications.
+A production-grade MERN application featuring real-time collaboration, offline-first synchronization, and intelligent task insights.
 
-## Highlights
+🔗 Live Demo: https://taskzen-orpin.vercel.app/
 
-- Workspace-level collaboration with roles: owner, admin, member
-- Projects grouped under workspaces
-- Kanban-style task management with drag-and-drop status updates
-- Task assignment, priority updates, and due-date support
-- Task comments and threaded collaboration
-- Real-time updates via Socket.IO for task and comment events
-- In-app notifications for assignments, comments, and workspace invitations
-- JWT-based authentication and protected API routes
-- Smart Insights panel for workload, risk, and project health signals
-- Offline-first task/comment changes with automatic sync on reconnect
-- TanStack Query server-state caching with optimistic UI updates
+---
 
-## Live Deployment
+## Key Highlights
 
-**Frontend:** https://taskzen-orpin.vercel.app/
+- Real-time multi-user collaboration using Socket.IO
+- Offline-first architecture with automatic sync on reconnect
+- Smart Insights engine (overdue tasks, workload, project health)
+- Multi-tenant workspace system with role-based access control
+- Kanban board with drag-and-drop (dnd-kit)
+
+---
+
+## What Makes Taskzen Different?
+
+Unlike basic task managers, Taskzen focuses on:
+
+- Real-time multi-user synchronization
+- Offline-first interaction model
+- Built-in task intelligence (insights engine)
+
+---
+
+## Demo Preview
+
+### Landing Page
+
+![Landing](./screenshots/landing.png)
+
+### Dashboard
+
+![Dashboard](./screenshots/dashboard.png)
+
+### Kanban Board & Insights
+
+![Kanban](./screenshots/kanban.png)
+
+---
 
 ## Monorepo Structure
 
@@ -119,6 +144,24 @@ Frontend defaults to http://localhost:5173 and backend to http://localhost:5000.
 
 ## Feature Overview
 
+### Real-Time Collaboration
+
+Socket.IO channels support:
+
+- project:task_created
+- project:task_updated
+- project:task_deleted
+- project:comment_created
+- project:comment_deleted
+- notification
+
+### Offline-First Sync
+
+- Actions (task updates, comments) are queued locally when offline
+- UI updates optimistically without blocking user interaction
+- On reconnect, queued actions are synced automatically with backend
+- Ensures no data loss and smooth user experience during network disruptions
+
 ### Authentication
 
 - Register and login endpoints
@@ -161,16 +204,30 @@ Frontend defaults to http://localhost:5173 and backend to http://localhost:5000.
   - Task assigned to user
   - New comment on user-relevant task
 
-### Real-Time Events
+## Architecture
 
-Socket.IO channels support:
+- **Frontend:** React + TypeScript (Vite, Tailwind, TanStack Query)
+- **Backend:** Node.js + Express + MongoDB
+- **Realtime Layer:** Socket.IO (event-driven system)
+- **Offline Sync:** Local action queue + server reconciliation
+- **State Management:** TanStack Query (cache-first, optimistic updates)
 
-- project:task_created
-- project:task_updated
-- project:task_deleted
-- project:comment_created
-- project:comment_deleted
-- notification
+### Key Design Decisions
+
+- WebSockets used instead of polling for real-time consistency
+- Optimistic UI updates for better user experience
+- Role-based middleware for secure multi-tenant access
+
+## System Flow
+
+1. User performs action (create/update task)
+2. UI updates optimistically (TanStack Query)
+3. API request sent to backend
+4. Backend processes and emits Socket.IO event
+5. All connected clients receive update in real-time
+6. Offline actions are queued and replayed on reconnect
+
+---
 
 ## Security and Access Control
 
@@ -198,6 +255,13 @@ Backend syntax check:
 - Mutations use optimistic cache updates with rollback where appropriate.
 - Background refetch and deduplication are handled by query keys.
 
+## Scalability Considerations
+
+- Event-driven architecture reduces polling overhead
+- Query caching minimizes redundant API calls
+- Modular backend structure supports feature expansion
+- Designed for horizontal scaling with stateless API and socket layer separation
+
 ## Troubleshooting
 
 ### Port already in use
@@ -212,12 +276,13 @@ Backend syntax check:
 - Confirm backend JWT_SECRET matches token signing secret
 - Confirm MongoDB connection is healthy
 
-### Frontend cannot reach API
+## Known Limitations
 
-- Ensure backend runs at http://localhost:5000
-- Verify frontend Axios baseURL in frontend/src/services/api.ts
+- Offline conflict resolution currently uses last-write-wins strategy
+- Large-scale real-time load not yet optimized with message queues
+- No automated test suite implemented yet
 
-## Roadmap Suggestions
+## Roadmap
 
 - Add automated tests (unit/integration/e2e)
 - Add API validation layer (schema-based)
