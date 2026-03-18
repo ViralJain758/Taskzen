@@ -1,73 +1,210 @@
-# React + TypeScript + Vite
+# Taskzen Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Taskzen frontend is a React + TypeScript single-page application for collaborative workspace and project management. It includes realtime task board updates, role-aware workspace interactions, and in-app notifications.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- Axios
+- Socket.IO Client
+- dnd-kit for drag-and-drop interactions
+- react-hot-toast for notifications
 
-## React Compiler
+## Directory Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+    frontend/
+      index.html
+      package.json
+      src/
+        App.tsx
+        main.tsx
+        index.css
+        App.css
+        components/
+          Sidebar.tsx
+          Topbar.tsx
+          Footer.tsx
+          NotificationBell.tsx
+          ConfirmDialog.tsx
+        context/
+          AuthContext.tsx
+          auth-context.ts
+          SidebarContext.tsx
+          NotificationContext.tsx
+        layouts/
+          MainLayout.tsx
+        pages/
+          Landing.tsx
+          Login.tsx
+          Register.tsx
+          Dashboard.tsx
+          WorkspacePage.tsx
+          ProjectPage.tsx
+          Privacy.tsx
+          Terms.tsx
+        services/
+          api.ts
+          workspaceService.ts
+          projectService.ts
+          taskService.ts
+          notificationService.ts
+        sockets/
+          socket.ts
+        types/
+          user.ts
+          api.ts
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+    npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Run
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Development:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+    npm run dev
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Production build:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+    npm run build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Preview production build:
+
+    npm run preview
+
+Lint:
+
+    npm run lint
+
+## Environment and API Integration
+
+The API base URL is currently configured in src/services/api.ts:
+
+    http://localhost:5000/api
+
+The app expects backend server availability at localhost:5000 and uses JWT Bearer tokens for protected requests.
+
+## Authentication Flow
+
+- Login/register pages call backend auth endpoints
+- JWT token and user profile are persisted in localStorage
+- Axios default Authorization header is set through setAuthToken
+- AuthContext manages session state across app
+
+## Routing
+
+Main routes include:
+
+- /
+- /login
+- /register
+- /dashboard
+- /workspace/:workspaceId
+- /project/:projectId
+- /privacy
+- /terms
+
+Protected experiences are embedded in MainLayout with Sidebar and Topbar context.
+
+## Core UX Modules
+
+### Dashboard
+
+- Lists user workspaces
+- Create workspace
+- Delete workspace (owner)
+- Leave workspace (admin/member)
+
+### Workspace Page
+
+- List projects in selected workspace
+- Create/delete projects
+- Manage members (invite/remove/update role)
+
+### Project Page
+
+- Kanban board grouped by status
+- Drag-and-drop status movement
+- Create, assign, reassign, and delete tasks
+- Add/delete comments on tasks
+
+### Notification System
+
+- Notification bell in topbar
+- Unread counter and dropdown
+- Mark single/all as read
+- Realtime updates with Socket.IO
+- High z-index rendering for overlay visibility above page cards/forms
+
+## Realtime Socket Architecture
+
+Shared socket client in src/sockets/socket.ts:
+
+- Uses token-aware auth synchronization
+- Supports reconnect on token changes
+- Project page joins/leaves project rooms
+- NotificationContext listens for notification events
+
+Incoming events handled by UI:
+
+- project:task_created
+- project:task_updated
+- project:task_deleted
+- project:comment_created
+- project:comment_deleted
+- notification
+
+## State and Contexts
+
+- AuthContext: user and token lifecycle
+- SidebarContext: mobile/sidebar visibility state
+- NotificationContext: notification feed, unread count, mark read operations
+
+## Service Layer Summary
+
+- workspaceService: workspace and member operations
+- projectService: project operations
+- taskService: task and comment operations
+- notificationService: notification fetch and read updates
+- api: shared Axios instance and auth header management
+
+## UI and Styling
+
+- Tailwind utility-first styling
+- Responsive layouts for desktop and mobile
+- Reusable surface-card design language
+- Toast messaging for user feedback
+
+## Known Operational Notes
+
+- Vite may switch from 5173 to alternate ports (5174, 5175) if in use
+- Backend must run for API and realtime functionality
+- JWT token must be valid for socket connection and protected APIs
+
+## Troubleshooting
+
+### App loads but no data
+
+- Confirm backend is running at localhost:5000
+- Confirm successful login and token presence in localStorage
+- Check browser network tab for API errors
+
+### Realtime updates not visible
+
+- Verify socket authentication token is set
+- Verify backend socket server is running
+- Check browser console for connect_error logs
+
+### Notification dropdown hidden behind content
+
+- Topbar and notification components use elevated z-index layers
+- Ensure no custom parent stacking context overrides are introduced
+
+## Quality Commands
+
+    npm run lint
+    npm run build
