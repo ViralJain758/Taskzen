@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   getProjectInsights,
   type ProjectInsight,
@@ -44,36 +45,30 @@ export const SmartInsightsPanel = ({
   projectId,
   refreshSignal,
 }: SmartInsightsPanelProps) => {
-  const [insights, setInsights] = useState<ProjectInsight[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {
+    data: insights = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<ProjectInsight[], unknown>({
+    queryKey: ["project-insights", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      return getProjectInsights(projectId);
+    },
+    enabled: Boolean(projectId),
+    staleTime: 20 * 1000,
+    refetchOnWindowFocus: true,
+  });
 
-  const fetchInsights = useCallback(async () => {
-    if (!projectId) {
-      setInsights([]);
-      setErrorMessage(null);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const data = await getProjectInsights(projectId);
-      setInsights(data);
-    } catch (error) {
-      console.error("Failed to load insights:", error);
-      setInsights([]);
-      setErrorMessage(
-        getApiErrorMessage(error, "Unable to load insights right now."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
+  const errorMessage = error
+    ? getApiErrorMessage(error, "Unable to load insights right now.")
+    : null;
 
   useEffect(() => {
-    void fetchInsights();
-  }, [fetchInsights, refreshSignal]);
+    if (!projectId || !refreshSignal) return;
+    void refetch();
+  }, [projectId, refreshSignal, refetch]);
 
   // Separate insights by type (health goes to the right, critical ones on top)
   const criticalInsights = insights.filter(
@@ -91,7 +86,9 @@ export const SmartInsightsPanel = ({
           Smart Insights
         </h3>
         <button
-          onClick={() => void fetchInsights()}
+          onClick={() => {
+            void refetch();
+          }}
           className="text-xs text-sky-600 transition hover:text-sky-700 underline"
         >
           Refresh

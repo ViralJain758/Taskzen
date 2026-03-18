@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -42,6 +42,18 @@ interface WorkspaceMember {
   role: "owner" | "admin" | "member";
 }
 
+interface MembersQueryData {
+  members: WorkspaceMember[];
+  canManageMembers: boolean;
+  canManageRoles: boolean;
+  pagination: MembersPaginationMeta;
+}
+
+interface ActivitiesQueryData {
+  activities: ActivityItem[];
+  pagination: ActivityPaginationMeta;
+}
+
 function WorkspacePage() {
   const { workspaceId } = useParams();
   const queryClient = useQueryClient();
@@ -54,27 +66,13 @@ function WorkspacePage() {
   const [description, setDescription] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-  const [membersLoadError, setMembersLoadError] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<
     string | null
   >(null);
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [membersPage, setMembersPage] = useState(1);
   const [membersLimit] = useState(4);
-  const [membersPagination, setMembersPagination] =
-    useState<MembersPaginationMeta>({
-      page: 1,
-      limit: 4,
-      total: 0,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPrevPage: false,
-    });
-  const [canManageMembers, setCanManageMembers] = useState(false);
-  const [canManageRoles, setCanManageRoles] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
   const [memberToRemove, setMemberToRemove] = useState<{
@@ -85,23 +83,25 @@ function WorkspacePage() {
     id: string;
     name: string;
   } | null>(null);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [activitiesLimit] = useState(4);
-  const [activitiesPagination, setActivitiesPagination] =
-    useState<ActivityPaginationMeta>({
-      page: 1,
-      limit: 4,
-      total: 0,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPrevPage: false,
-    });
-  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
-  const [activitiesLoadError, setActivitiesLoadError] = useState<string | null>(
-    null,
-  );
   const navigate = useNavigate();
+
+  const membersQueryKey = useMemo(
+    () =>
+      ["workspace-members", workspaceId, membersPage, membersLimit] as const,
+    [workspaceId, membersPage, membersLimit],
+  );
+  const activitiesQueryKey = useMemo(
+    () =>
+      [
+        "workspace-activities",
+        workspaceId,
+        activitiesPage,
+        activitiesLimit,
+      ] as const,
+    [workspaceId, activitiesPage, activitiesLimit],
+  );
 
   const {
     data: projects = [],
@@ -121,22 +121,28 @@ function WorkspacePage() {
     ? getApiErrorMessage(projectsQueryError, "Failed to load projects. Retry?")
     : null;
 
-  const fetchMembers = useCallback(async () => {
-    try {
-      setIsLoadingMembers(true);
-      setMembersLoadError(null);
+  const {
+    data: membersData,
+    isLoading: isLoadingMembers,
+    error: membersQueryError,
+    refetch: refetchMembers,
+  } = useQuery<MembersQueryData, unknown>({
+    queryKey: membersQueryKey,
+    queryFn: async () => {
       if (!workspaceId) {
-        setMembers([]);
-        setCanManageMembers(false);
-        setMembersPagination({
-          page: 1,
-          limit: membersLimit,
-          total: 0,
-          totalPages: 1,
-          hasNextPage: false,
-          hasPrevPage: false,
-        });
-        return;
+        return {
+          members: [],
+          canManageMembers: false,
+          canManageRoles: false,
+          pagination: {
+            page: 1,
+            limit: membersLimit,
+            total: 0,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        };
       }
 
       const data = await getWorkspaceMembers(
@@ -144,47 +150,66 @@ function WorkspacePage() {
         membersPage,
         membersLimit,
       );
-      setMembers(data.members || []);
-      setCanManageMembers(Boolean(data.canManageMembers));
-      setCanManageRoles(Boolean(data.canManageRoles));
-      if (data.pagination) {
-        if (membersPage > data.pagination.totalPages) {
-          setMembersPage(data.pagination.totalPages);
-          return;
-        }
-        setMembersPagination(data.pagination);
-      }
-    } catch (error) {
-      console.error(error);
-      const message = getApiErrorMessage(
-        error,
-        "Failed to load members. Retry?",
-      );
-      setMembersLoadError(message);
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  }, [workspaceId, membersPage, membersLimit]);
-
-  useEffect(() => {
-    void fetchMembers();
-  }, [fetchMembers]);
-
-  const fetchActivities = useCallback(async () => {
-    try {
-      setIsLoadingActivities(true);
-      setActivitiesLoadError(null);
-      if (!workspaceId) {
-        setActivities([]);
-        setActivitiesPagination({
-          page: 1,
-          limit: activitiesLimit,
+      return {
+        members: data.members || [],
+        canManageMembers: Boolean(data.canManageMembers),
+        canManageRoles: Boolean(data.canManageRoles),
+        pagination: data.pagination || {
+          page: membersPage,
+          limit: membersLimit,
           total: 0,
           totalPages: 1,
           hasNextPage: false,
           hasPrevPage: false,
-        });
-        return;
+        },
+      };
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  const membersLoadError = membersQueryError
+    ? getApiErrorMessage(membersQueryError, "Failed to load members. Retry?")
+    : null;
+  const members = membersData?.members || [];
+  const membersPagination =
+    membersData?.pagination ||
+    ({
+      page: 1,
+      limit: membersLimit,
+      total: 0,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    } as MembersPaginationMeta);
+  const canManageMembers = Boolean(membersData?.canManageMembers);
+  const canManageRoles = Boolean(membersData?.canManageRoles);
+
+  useEffect(() => {
+    if (membersPage > membersPagination.totalPages) {
+      setMembersPage(membersPagination.totalPages);
+    }
+  }, [membersPage, membersPagination.totalPages]);
+
+  const {
+    data: activitiesData,
+    isLoading: isLoadingActivities,
+    error: activitiesQueryError,
+    refetch: refetchActivities,
+  } = useQuery<ActivitiesQueryData, unknown>({
+    queryKey: activitiesQueryKey,
+    queryFn: async () => {
+      if (!workspaceId) {
+        return {
+          activities: [],
+          pagination: {
+            page: 1,
+            limit: activitiesLimit,
+            total: 0,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        };
       }
 
       const data = await getWorkspaceActivities(
@@ -192,29 +217,44 @@ function WorkspacePage() {
         activitiesPage,
         activitiesLimit,
       );
-      setActivities(data.activities || []);
-      if (data.pagination) {
-        if (activitiesPage > data.pagination.totalPages) {
-          setActivitiesPage(data.pagination.totalPages);
-          return;
-        }
-        setActivitiesPagination(data.pagination);
-      }
-    } catch (error) {
-      console.error(error);
-      const message = getApiErrorMessage(
-        error,
+      return {
+        activities: data.activities || [],
+        pagination: data.pagination || {
+          page: activitiesPage,
+          limit: activitiesLimit,
+          total: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      };
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  const activitiesLoadError = activitiesQueryError
+    ? getApiErrorMessage(
+        activitiesQueryError,
         "Failed to load activity feed. Retry?",
-      );
-      setActivitiesLoadError(message);
-    } finally {
-      setIsLoadingActivities(false);
-    }
-  }, [workspaceId, activitiesPage, activitiesLimit]);
+      )
+    : null;
+  const activities = activitiesData?.activities || [];
+  const activitiesPagination =
+    activitiesData?.pagination ||
+    ({
+      page: 1,
+      limit: activitiesLimit,
+      total: 0,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    } as ActivityPaginationMeta);
 
   useEffect(() => {
-    void fetchActivities();
-  }, [fetchActivities]);
+    if (activitiesPage > activitiesPagination.totalPages) {
+      setActivitiesPage(activitiesPagination.totalPages);
+    }
+  }, [activitiesPage, activitiesPagination.totalPages]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -233,27 +273,42 @@ function WorkspacePage() {
     }) => {
       if (event.workspaceId !== workspaceId) return;
 
-      setActivities((prev) => {
-        const exists = prev.some((item) => item._id === event.activity._id);
-        if (exists) return prev;
+      queryClient.setQueryData<ActivitiesQueryData>(
+        activitiesQueryKey,
+        (previous) => {
+          if (!previous) return previous;
 
-        if (activitiesPage !== 1) {
-          setActivitiesPagination((meta) => ({
-            ...meta,
-            total: meta.total + 1,
-            totalPages: Math.max(1, Math.ceil((meta.total + 1) / meta.limit)),
-          }));
-          return prev;
-        }
+          const exists = previous.activities.some(
+            (item) => item._id === event.activity._id,
+          );
+          if (exists) return previous;
 
-        const next = [event.activity, ...prev].slice(0, activitiesLimit);
-        setActivitiesPagination((meta) => ({
-          ...meta,
-          total: meta.total + 1,
-          totalPages: Math.max(1, Math.ceil((meta.total + 1) / meta.limit)),
-        }));
-        return next;
-      });
+          const nextTotal = previous.pagination.total + 1;
+          const nextPagination = {
+            ...previous.pagination,
+            total: nextTotal,
+            totalPages: Math.max(
+              1,
+              Math.ceil(nextTotal / previous.pagination.limit),
+            ),
+          };
+
+          if (activitiesPage !== 1) {
+            return {
+              ...previous,
+              pagination: nextPagination,
+            };
+          }
+
+          return {
+            activities: [event.activity, ...previous.activities].slice(
+              0,
+              activitiesLimit,
+            ),
+            pagination: nextPagination,
+          };
+        },
+      );
     };
 
     socket.on("connect", joinCurrentWorkspace);
@@ -264,15 +319,34 @@ function WorkspacePage() {
       socket.off("connect", joinCurrentWorkspace);
       socket.off("workspace:activity_created", handleActivityCreated);
     };
-  }, [workspaceId, activitiesPage, activitiesLimit]);
+  }, [
+    activitiesLimit,
+    activitiesPage,
+    activitiesQueryKey,
+    queryClient,
+    workspaceId,
+  ]);
 
   const handleCreate = async () => {
     const projectName = name.trim();
     const projectDescription = description.trim();
     if (!projectName || !workspaceId || isCreating) return;
 
+    const tempProjectId = `temp-project-${Date.now()}`;
+    const optimisticProject: Project = {
+      _id: tempProjectId,
+      name: projectName,
+      description: projectDescription || undefined,
+    };
+
     try {
       setIsCreating(true);
+
+      queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) => [
+        optimisticProject,
+        ...(previous || []),
+      ]);
+
       const response = await createProject(workspaceId, {
         name: projectName,
         description: projectDescription || undefined,
@@ -288,18 +362,22 @@ function WorkspacePage() {
           ? ((response as { project: Project }).project as Project)
           : null;
 
-      if (createdProject) {
-        queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) => [
-          createdProject,
-          ...(previous || []),
-        ]);
-      } else {
-        await queryClient.invalidateQueries({ queryKey: projectsQueryKey });
+      if (!createdProject) {
+        throw new Error("Project response missing project payload");
       }
+
+      queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) =>
+        (previous || []).map((project) =>
+          project._id === tempProjectId ? createdProject : project,
+        ),
+      );
 
       toast.success("Project created");
     } catch (error) {
       console.error(error);
+      queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) =>
+        (previous || []).filter((project) => project._id !== tempProjectId),
+      );
       toast.error("Unable to create project");
     } finally {
       setIsCreating(false);
@@ -338,19 +416,108 @@ function WorkspacePage() {
     const email = inviteEmail.trim();
     if (!email) return;
 
+    const optimisticMemberId = `temp-member-${Date.now()}`;
+    const optimisticMember: WorkspaceMember = {
+      user: {
+        _id: optimisticMemberId,
+        name: email.split("@")[0] || "New member",
+        email,
+      },
+      role: inviteRole,
+    };
+
+    const firstPageMembersKey = [
+      "workspace-members",
+      workspaceId,
+      1,
+      membersLimit,
+    ] as const;
+
+    const previousFirstPageMembers =
+      queryClient.getQueryData<MembersQueryData>(firstPageMembersKey);
+
     try {
       setIsInviting(true);
-      await inviteWorkspaceMember(workspaceId, {
+      setMembersPage(1);
+      queryClient.setQueryData<MembersQueryData>(
+        firstPageMembersKey,
+        (current) => {
+          if (!current) {
+            return {
+              members: [optimisticMember],
+              canManageMembers: true,
+              canManageRoles: true,
+              pagination: {
+                page: 1,
+                limit: membersLimit,
+                total: 1,
+                totalPages: 1,
+                hasNextPage: false,
+                hasPrevPage: false,
+              },
+            };
+          }
+
+          const nextTotal = current.pagination.total + 1;
+          const nextTotalPages = Math.max(
+            1,
+            Math.ceil(nextTotal / current.pagination.limit),
+          );
+
+          return {
+            ...current,
+            members: [optimisticMember, ...current.members].slice(
+              0,
+              current.pagination.limit,
+            ),
+            pagination: {
+              ...current.pagination,
+              total: nextTotal,
+              totalPages: nextTotalPages,
+              hasNextPage: nextTotalPages > 1,
+            },
+          };
+        },
+      );
+
+      const response = await inviteWorkspaceMember(workspaceId, {
         email,
         role: inviteRole,
       });
+
+      const returnedMember =
+        typeof response === "object" &&
+        response !== null &&
+        "member" in response &&
+        typeof (response as { member?: unknown }).member === "object"
+          ? ((response as { member: WorkspaceMember })
+              .member as WorkspaceMember)
+          : null;
+
+      if (returnedMember) {
+        queryClient.setQueryData<MembersQueryData>(
+          firstPageMembersKey,
+          (current) => {
+            if (!current) return current;
+
+            return {
+              ...current,
+              members: current.members.map((member) =>
+                member.user._id === optimisticMemberId
+                  ? returnedMember
+                  : member,
+              ),
+            };
+          },
+        );
+      }
+
       setInviteEmail("");
       setInviteRole("member");
       toast.success("Member added to workspace");
-      setMembersPage(1);
-      await fetchMembers();
     } catch (error) {
       console.error(error);
+      queryClient.setQueryData(firstPageMembersKey, previousFirstPageMembers);
       toast.error("Unable to add member");
     } finally {
       setIsInviting(false);
@@ -363,9 +530,32 @@ function WorkspacePage() {
     try {
       setIsRemovingMember(true);
       await removeWorkspaceMember(workspaceId, memberToRemove.id);
+      queryClient.setQueryData<MembersQueryData>(
+        membersQueryKey,
+        (previous) => {
+          if (!previous) return previous;
+
+          const nextMembers = previous.members.filter(
+            (member) => member.user._id !== memberToRemove.id,
+          );
+          const nextTotal = Math.max(0, previous.pagination.total - 1);
+
+          return {
+            ...previous,
+            members: nextMembers,
+            pagination: {
+              ...previous.pagination,
+              total: nextTotal,
+              totalPages: Math.max(
+                1,
+                Math.ceil(nextTotal / previous.pagination.limit),
+              ),
+            },
+          };
+        },
+      );
       toast.success("Member removed");
       setMemberToRemove(null);
-      await fetchMembers();
     } catch (error) {
       console.error(error);
       toast.error("Unable to remove member");
@@ -382,18 +572,30 @@ function WorkspacePage() {
 
     const previous = members;
     setUpdatingRoleMemberId(memberId);
-    setMembers((prev) =>
-      prev.map((member) =>
-        member.user._id === memberId ? { ...member, role: nextRole } : member,
-      ),
-    );
+    queryClient.setQueryData<MembersQueryData>(membersQueryKey, (current) => {
+      if (!current) return current;
+
+      return {
+        ...current,
+        members: current.members.map((member) =>
+          member.user._id === memberId ? { ...member, role: nextRole } : member,
+        ),
+      };
+    });
 
     try {
       await updateWorkspaceMemberRole(workspaceId, memberId, nextRole);
       toast.success("Member role updated");
     } catch (error) {
       console.error(error);
-      setMembers(previous);
+      queryClient.setQueryData<MembersQueryData>(membersQueryKey, (current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          members: previous,
+        };
+      });
       toast.error("Unable to update member role");
     } finally {
       setUpdatingRoleMemberId(null);
@@ -547,7 +749,7 @@ function WorkspacePage() {
               title="Failed to load activity feed"
               message={activitiesLoadError}
               onRetry={() => {
-                void fetchActivities();
+                void refetchActivities();
               }}
             />
           ) : activities.length === 0 ? (
@@ -656,7 +858,7 @@ function WorkspacePage() {
               title="Failed to load members"
               message={membersLoadError}
               onRetry={() => {
-                void fetchMembers();
+                void refetchMembers();
               }}
             />
           ) : members.length === 0 ? (
