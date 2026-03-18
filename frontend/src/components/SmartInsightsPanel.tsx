@@ -3,6 +3,7 @@ import {
   getProjectInsights,
   type ProjectInsight,
 } from "../services/taskService";
+import { getApiErrorMessage } from "../utils";
 
 interface SmartInsightsPanelProps {
   projectId: string | undefined;
@@ -62,7 +63,9 @@ export const SmartInsightsPanel = ({
     } catch (error) {
       console.error("Failed to load insights:", error);
       setInsights([]);
-      setErrorMessage("Unable to load insights right now.");
+      setErrorMessage(
+        getApiErrorMessage(error, "Unable to load insights right now."),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -97,8 +100,22 @@ export const SmartInsightsPanel = ({
 
       <div className="space-y-2">
         {isLoading && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-            <p className="text-xs text-slate-600">Analyzing project tasks...</p>
+          <div className="space-y-2">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="rounded-lg border border-slate-200 bg-slate-50 p-2.5"
+              >
+                <div
+                  className="shimmer-skeleton h-2.5 rounded"
+                  style={{ width: item === 1 ? "72%" : "86%" }}
+                />
+                <div
+                  className="shimmer-skeleton mt-2 h-2.5 rounded"
+                  style={{ width: item === 2 ? "54%" : "64%" }}
+                />
+              </div>
+            ))}
           </div>
         )}
 

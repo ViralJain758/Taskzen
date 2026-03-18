@@ -41,7 +41,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "../components/ConfirmDialog";
 import SmartInsightsPanel from "../components/SmartInsightsPanel";
+import LoadErrorCard from "../components/LoadErrorCard";
 import {
+  getApiErrorMessage,
   enqueueCommentAction,
   enqueueTaskAction,
   getPendingOfflineAddedCommentIdsByTask,
@@ -486,6 +488,7 @@ function ProjectPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [tasksLoadError, setTasksLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<ProjectAssignee[]>([]);
@@ -571,11 +574,13 @@ function ProjectPage() {
   const fetchTasks = useCallback(async (): Promise<Task[]> => {
     try {
       if (!projectId) return [];
+      setTasksLoadError(null);
       const data = await getTasks(projectId);
       return data;
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load tasks");
+      const message = getApiErrorMessage(error, "Failed to load tasks. Retry?");
+      setTasksLoadError(message);
       return [];
     } finally {
       setIsLoading(false);
@@ -1542,9 +1547,45 @@ function ProjectPage() {
         refreshSignal={insightsRefreshSignal}
       />
 
+      {tasksLoadError && !isLoading && (
+        <LoadErrorCard
+          title="Failed to load tasks"
+          message={tasksLoadError}
+          onRetry={() => {
+            setIsLoading(true);
+            void fetchTasks().then((data) => {
+              setTasks(data);
+            });
+          }}
+        />
+      )}
+
       {isLoading ? (
-        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-8 text-slate-500">
-          Loading tasks...
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          {[0, 1, 2].map((column) => (
+            <div
+              key={column}
+              className="surface-card rounded-2xl border border-slate-200 p-4"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <div className="shimmer-skeleton h-3 w-24 rounded" />
+                <div className="shimmer-skeleton h-5 w-8 rounded-full" />
+              </div>
+              <div className="space-y-3">
+                {[0, 1].map((card) => (
+                  <div
+                    key={`${column}-${card}`}
+                    className="rounded-xl border border-slate-200 bg-white p-3"
+                  >
+                    <div className="shimmer-skeleton h-3.5 w-3/4 rounded" />
+                    <div className="shimmer-skeleton mt-2 h-2.5 w-full rounded" />
+                    <div className="shimmer-skeleton mt-2 h-2.5 w-5/6 rounded" />
+                    <div className="shimmer-skeleton mt-3 h-5 w-20 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <>

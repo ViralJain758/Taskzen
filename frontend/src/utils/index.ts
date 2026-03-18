@@ -7,3 +7,5 @@ export {
   syncOfflineActions,
   syncTaskActions,
 } from "./offlineTaskSync";
+
+export { getApiErrorMessage } from "./apiError";

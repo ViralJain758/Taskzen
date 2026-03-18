@@ -6,8 +6,10 @@ import {
   deleteWorkspace,
   leaveWorkspace,
 } from "../services/workspaceService";
+import { getApiErrorMessage } from "../utils";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../components/ConfirmDialog";
+import LoadErrorCard from "../components/LoadErrorCard";
 
 interface Workspace {
   workspace: {
@@ -21,6 +23,9 @@ function Dashboard() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [workspacesLoadError, setWorkspacesLoadError] = useState<string | null>(
+    null,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -36,11 +41,16 @@ function Dashboard() {
 
   const fetchWorkspaces = async (): Promise<Workspace[]> => {
     try {
+      setWorkspacesLoadError(null);
       const data = await getWorkspaces();
       return data;
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load workspaces");
+      const message = getApiErrorMessage(
+        error,
+        "Failed to load workspaces. Retry?",
+      );
+      setWorkspacesLoadError(message);
       return [];
     } finally {
       setIsLoading(false);
@@ -147,65 +157,87 @@ function Dashboard() {
       </div>
 
       {isLoading ? (
-        <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-          Loading workspaces...
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
-          {workspaces.map((w) => (
+        <div className="space-y-3">
+          {[0, 1, 2].map((item) => (
             <div
-              key={w.workspace._id}
-              onClick={() => navigate(`/workspace/${w.workspace._id}`)}
-              className="surface-card cursor-pointer rounded-2xl p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg sm:p-5"
+              key={item}
+              className="surface-card rounded-2xl border border-slate-200 p-4 sm:p-5"
             >
-              <div className="flex items-start justify-between gap-2 sm:gap-3">
-                <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                  {w.workspace.name}
-                </h2>
-                <div className="flex shrink-0 items-center gap-2">
-                  {w.role === "owner" ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWorkspaceToDelete({
-                          id: w.workspace._id,
-                          name: w.workspace.name,
-                        });
-                      }}
-                      className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                    >
-                      Delete
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWorkspaceToLeave({
-                          id: w.workspace._id,
-                          name: w.workspace.name,
-                        });
-                      }}
-                      className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
-                    >
-                      Leave
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Role: {w.role}
-              </p>
+              <div className="shimmer-skeleton h-4 w-2/3 rounded" />
+              <div className="shimmer-skeleton mt-3 h-3 w-1/2 rounded" />
             </div>
           ))}
-
-          {workspaces.length === 0 && (
-            <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
-              No workspaces yet. Create one to get started.
-            </p>
-          )}
         </div>
+      ) : (
+        <>
+          {workspacesLoadError && (
+            <LoadErrorCard
+              title="Failed to load workspaces"
+              message={workspacesLoadError}
+              onRetry={() => {
+                setIsLoading(true);
+                void fetchWorkspaces().then((data) => {
+                  setWorkspaces(data);
+                });
+              }}
+            />
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
+            {workspaces.map((w) => (
+              <div
+                key={w.workspace._id}
+                onClick={() => navigate(`/workspace/${w.workspace._id}`)}
+                className="surface-card cursor-pointer rounded-2xl p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg sm:p-5"
+              >
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
+                  <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+                    {w.workspace.name}
+                  </h2>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {w.role === "owner" ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWorkspaceToDelete({
+                            id: w.workspace._id,
+                            name: w.workspace.name,
+                          });
+                        }}
+                        className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWorkspaceToLeave({
+                            id: w.workspace._id,
+                            name: w.workspace.name,
+                          });
+                        }}
+                        className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                      >
+                        Leave
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Role: {w.role}
+                </p>
+              </div>
+            ))}
+
+            {workspaces.length === 0 && !workspacesLoadError && (
+              <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
+                No workspaces yet. Create one to get started.
+              </p>
+            )}
+          </div>
+        </>
       )}
 
       <ConfirmDialog

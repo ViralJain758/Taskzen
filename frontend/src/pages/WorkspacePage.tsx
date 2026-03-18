@@ -17,12 +17,14 @@ import {
   updateWorkspaceMemberRole,
   type PaginationMeta as MembersPaginationMeta,
 } from "../services/workspaceService";
+import { getApiErrorMessage } from "../utils";
 import socket, {
   joinWorkspaceRoom,
   leaveWorkspaceRoom,
 } from "../sockets/socket";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../components/ConfirmDialog";
+import LoadErrorCard from "../components/LoadErrorCard";
 
 interface Project {
   _id: string;
@@ -46,9 +48,13 @@ function WorkspacePage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(
+    null,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+  const [membersLoadError, setMembersLoadError] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
   const [updatingRoleMemberId, setUpdatingRoleMemberId] = useState<
@@ -91,16 +97,24 @@ function WorkspacePage() {
       hasPrevPage: false,
     });
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+  const [activitiesLoadError, setActivitiesLoadError] = useState<string | null>(
+    null,
+  );
   const navigate = useNavigate();
 
   const fetchProjects = useCallback(async (): Promise<Project[]> => {
     try {
       if (!workspaceId) return [];
+      setProjectsLoadError(null);
       const data = await getProjects(workspaceId);
       return data;
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load projects");
+      const message = getApiErrorMessage(
+        error,
+        "Failed to load projects. Retry?",
+      );
+      setProjectsLoadError(message);
       return [];
     } finally {
       setIsLoading(false);
@@ -116,6 +130,7 @@ function WorkspacePage() {
   const fetchMembers = useCallback(async () => {
     try {
       setIsLoadingMembers(true);
+      setMembersLoadError(null);
       if (!workspaceId) {
         setMembers([]);
         setCanManageMembers(false);
@@ -147,7 +162,11 @@ function WorkspacePage() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load workspace members");
+      const message = getApiErrorMessage(
+        error,
+        "Failed to load members. Retry?",
+      );
+      setMembersLoadError(message);
     } finally {
       setIsLoadingMembers(false);
     }
@@ -157,46 +176,51 @@ function WorkspacePage() {
     void fetchMembers();
   }, [fetchMembers]);
 
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        setIsLoadingActivities(true);
-        if (!workspaceId) {
-          setActivities([]);
-          setActivitiesPagination({
-            page: 1,
-            limit: activitiesLimit,
-            total: 0,
-            totalPages: 1,
-            hasNextPage: false,
-            hasPrevPage: false,
-          });
+  const fetchActivities = useCallback(async () => {
+    try {
+      setIsLoadingActivities(true);
+      setActivitiesLoadError(null);
+      if (!workspaceId) {
+        setActivities([]);
+        setActivitiesPagination({
+          page: 1,
+          limit: activitiesLimit,
+          total: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
+        return;
+      }
+
+      const data = await getWorkspaceActivities(
+        workspaceId,
+        activitiesPage,
+        activitiesLimit,
+      );
+      setActivities(data.activities || []);
+      if (data.pagination) {
+        if (activitiesPage > data.pagination.totalPages) {
+          setActivitiesPage(data.pagination.totalPages);
           return;
         }
-
-        const data = await getWorkspaceActivities(
-          workspaceId,
-          activitiesPage,
-          activitiesLimit,
-        );
-        setActivities(data.activities || []);
-        if (data.pagination) {
-          if (activitiesPage > data.pagination.totalPages) {
-            setActivitiesPage(data.pagination.totalPages);
-            return;
-          }
-          setActivitiesPagination(data.pagination);
-        }
-      } catch (error) {
-        console.error(error);
-        toast.error("Failed to load activity feed");
-      } finally {
-        setIsLoadingActivities(false);
+        setActivitiesPagination(data.pagination);
       }
-    };
-
-    void fetchActivities();
+    } catch (error) {
+      console.error(error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to load activity feed. Retry?",
+      );
+      setActivitiesLoadError(message);
+    } finally {
+      setIsLoadingActivities(false);
+    }
   }, [workspaceId, activitiesPage, activitiesLimit]);
+
+  useEffect(() => {
+    void fetchActivities();
+  }, [fetchActivities]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -421,45 +445,70 @@ function WorkspacePage() {
         </div>
 
         {isLoading ? (
-          <div className="surface-card rounded-2xl border border-dashed border-slate-300 p-4 text-xs text-slate-500 sm:p-6 sm:text-sm">
-            Loading projects...
-          </div>
-        ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-            {projects.map((p) => (
+            {[0, 1, 2].map((item) => (
               <div
-                key={p._id}
-                onClick={() => navigate(`/project/${p._id}`)}
-                className="surface-card cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg sm:p-5"
+                key={item}
+                className="surface-card rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
               >
-                <div className="flex items-start justify-between gap-2 sm:gap-3">
-                  <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-                    {p.name}
-                  </h2>
-                  {canManageMembers && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProjectToDelete({ id: p._id, name: p.name });
-                      }}
-                      className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 text-sm text-slate-500">
-                  {p.description || "No description yet"}
-                </p>
+                <div className="shimmer-skeleton h-4 w-3/4 rounded" />
+                <div className="shimmer-skeleton mt-3 h-3 w-full rounded" />
+                <div className="shimmer-skeleton mt-2 h-3 w-5/6 rounded" />
               </div>
             ))}
-            {projects.length === 0 && (
-              <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
-                No projects yet. Create your first project above.
-              </p>
-            )}
           </div>
+        ) : (
+          <>
+            {projectsLoadError && (
+              <div className="mb-4">
+                <LoadErrorCard
+                  title="Failed to load projects"
+                  message={projectsLoadError}
+                  onRetry={() => {
+                    setIsLoading(true);
+                    void fetchProjects().then((data) => {
+                      setProjects(data);
+                    });
+                  }}
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+              {projects.map((p) => (
+                <div
+                  key={p._id}
+                  onClick={() => navigate(`/project/${p._id}`)}
+                  className="surface-card cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition duration-200 hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg sm:p-5"
+                >
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+                      {p.name}
+                    </h2>
+                    {canManageMembers && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete({ id: p._id, name: p.name });
+                        }}
+                        className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {p.description || "No description yet"}
+                  </p>
+                </div>
+              ))}
+              {projects.length === 0 && !projectsLoadError && (
+                <p className="surface-card rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500 md:col-span-2 xl:col-span-3">
+                  No projects yet. Create your first project above.
+                </p>
+              )}
+            </div>
+          </>
         )}
       </section>
 
@@ -473,9 +522,25 @@ function WorkspacePage() {
           </div>
 
           {isLoadingActivities ? (
-            <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              Loading activity...
-            </p>
+            <div className="space-y-2">
+              {[0, 1, 2].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <div className="shimmer-skeleton h-3 w-11/12 rounded" />
+                  <div className="shimmer-skeleton mt-2 h-2.5 w-1/3 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : activitiesLoadError ? (
+            <LoadErrorCard
+              title="Failed to load activity feed"
+              message={activitiesLoadError}
+              onRetry={() => {
+                void fetchActivities();
+              }}
+            />
           ) : activities.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
               No activity yet in this workspace.
@@ -561,9 +626,30 @@ function WorkspacePage() {
           )}
 
           {isLoadingMembers ? (
-            <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              Loading members...
-            </p>
+            <div className="space-y-2">
+              {[0, 1, 2].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="shimmer-skeleton h-3.5 w-1/2 rounded" />
+                      <div className="shimmer-skeleton mt-2 h-2.5 w-2/3 rounded" />
+                    </div>
+                    <div className="shimmer-skeleton h-6 w-20 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : membersLoadError ? (
+            <LoadErrorCard
+              title="Failed to load members"
+              message={membersLoadError}
+              onRetry={() => {
+                void fetchMembers();
+              }}
+            />
           ) : members.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
               No members found in this workspace.
