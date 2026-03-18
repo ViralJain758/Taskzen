@@ -9,6 +9,7 @@ Taskzen backend is a Node.js API built with Express, MongoDB, and Socket.IO. It 
 - MongoDB with Mongoose
 - JWT authentication
 - Socket.IO for real-time features
+- Smart Insights generation endpoint for project health and risk signals
 
 ## Directory Structure
 
@@ -38,6 +39,7 @@ Taskzen backend is a Node.js API built with Express, MongoDB, and Socket.IO. It 
           Comment.js
           Notification.js
         routes/
+          index.js
           authRoutes.js
           workspaceRoutes.js
           projectRoutes.js
@@ -165,6 +167,7 @@ Health check:
 - POST /projects/:workspaceId
 - GET /projects/:workspaceId
 - DELETE /projects/:workspaceId/:projectId
+- GET /projects/insights/:projectId
 
 ### Tasks
 
@@ -230,6 +233,11 @@ Supported socket events:
 
 - Validation and auth errors return structured JSON messages
 - Typical status codes: 400, 401, 403, 404, 500
+
+## Routing Notes
+
+- Route mounting is centralized via src/routes/index.js.
+- API modules remain split by domain (auth/workspace/project/task/comment/notification).
 
 ## Local Verification
 

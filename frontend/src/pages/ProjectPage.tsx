@@ -1446,7 +1446,7 @@ function ProjectPage() {
       socket.off("project:comment_created", handleCommentCreated);
       socket.off("project:comment_deleted", handleCommentDeleted);
     };
-  }, [projectId]);
+  }, [projectId, setTasksCache]);
 
   return (
     <div className="fade-up space-y-5">

@@ -9,6 +9,7 @@ Taskzen frontend is a React + TypeScript single-page application for collaborati
 - Vite
 - Tailwind CSS
 - React Router
+- TanStack Query
 - Axios
 - Socket.IO Client
 - dnd-kit for drag-and-drop interactions
@@ -25,11 +26,14 @@ Taskzen frontend is a React + TypeScript single-page application for collaborati
         index.css
         App.css
         components/
+          AppErrorBoundary.tsx
           Sidebar.tsx
           Topbar.tsx
           Footer.tsx
           NotificationBell.tsx
           ConfirmDialog.tsx
+          LoadErrorCard.tsx
+          SmartInsightsPanel.tsx
         context/
           AuthContext.tsx
           auth-context.ts
@@ -130,7 +134,26 @@ Protected experiences are embedded in MainLayout with Sidebar and Topbar context
 - Kanban board grouped by status
 - Drag-and-drop status movement
 - Create, assign, reassign, and delete tasks
+- Update task priority
 - Add/delete comments on tasks
+- Smart Insights panel with cached fetches and manual refresh
+- Offline queue and sync behavior for task/comment changes
+
+## Server State Strategy (TanStack Query)
+
+- QueryClient is configured at app-provider level.
+- Primary query caches:
+  - workspace-projects
+  - workspace-members
+  - workspace-activities
+  - project-tasks
+  - project-insights
+- Cache-first mutations are used for:
+  - task create/update/delete flows
+  - project create/delete flows
+  - member role/remove/invite flows
+- Retry, deduplication, and background refetch are handled by TanStack Query.
+- Avoid manual useEffect + setState fetching for server state.
 
 ### Notification System
 
@@ -163,6 +186,7 @@ Incoming events handled by UI:
 - AuthContext: user and token lifecycle
 - SidebarContext: mobile/sidebar visibility state
 - NotificationContext: notification feed, unread count, mark read operations
+- TanStack Query: server-state caching, optimistic updates, and refetch control
 
 ## Service Layer Summary
 
@@ -171,6 +195,13 @@ Incoming events handled by UI:
 - taskService: task and comment operations
 - notificationService: notification fetch and read updates
 - api: shared Axios instance and auth header management
+
+## Resilience and Error Handling
+
+- Global app-level error boundary via AppErrorBoundary.
+- Centralized API/network error toasts via Axios response interceptor.
+- Page-level retry cards for major data loads.
+- Skeleton shimmer placeholders during loading states.
 
 ## UI and Styling
 

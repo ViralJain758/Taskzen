@@ -58,6 +58,7 @@ Prefer small, focused commits. Recommended format:
 - Backend starts without syntax/runtime errors.
 - Documentation updated if behavior changed.
 - Screenshots/GIFs added for UI changes when applicable.
+- For server-state changes, TanStack Query cache behavior is covered (query keys, optimistic updates, rollback path).
 
 ## Coding Standards
 
@@ -65,6 +66,14 @@ Prefer small, focused commits. Recommended format:
 - Avoid unrelated refactors in the same pull request.
 - Keep public API behavior backward compatible unless discussed.
 - Add clear naming and maintain existing style conventions.
+
+## Frontend Server-State Guidelines
+
+- Use TanStack Query for API-backed server state.
+- Prefer cache updates over full list refetch after every mutation.
+- Use optimistic updates for latency-sensitive interactions when rollback is feasible.
+- Keep query keys stable and scoped (workspace/project + pagination/filter params).
+- Reserve local component state for purely UI concerns.
 
 ## Reporting Issues
 

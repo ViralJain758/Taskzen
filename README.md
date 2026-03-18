@@ -9,11 +9,14 @@ The repository is organized as a monorepo with separate frontend and backend app
 - Workspace-level collaboration with roles: owner, admin, member
 - Projects grouped under workspaces
 - Kanban-style task management with drag-and-drop status updates
-- Task assignment and due-date support
+- Task assignment, priority updates, and due-date support
 - Task comments and threaded collaboration
 - Real-time updates via Socket.IO for task and comment events
 - In-app notifications for assignments, comments, and workspace invitations
 - JWT-based authentication and protected API routes
+- Smart Insights panel for workload, risk, and project health signals
+- Offline-first task/comment changes with automatic sync on reconnect
+- TanStack Query server-state caching with optimistic UI updates
 
 ## Monorepo Structure
 
@@ -37,6 +40,7 @@ The repository is organized as a monorepo with separate frontend and backend app
 - Vite
 - Tailwind CSS
 - React Router
+- TanStack Query
 - Axios
 - Socket.IO Client
 - dnd-kit for drag-and-drop task interactions
@@ -116,12 +120,14 @@ Frontend defaults to http://localhost:5173 and backend to http://localhost:5000.
 
 - Create, list, and delete projects inside a workspace
 - Fetch single project details with workspace linkage
+- Project-level Smart Insights endpoint support
 
 ### Tasks
 
 - Create and list tasks per project
 - Update status (todo, in_progress, completed)
 - Reassign tasks
+- Update priority (low, medium, high)
 - Delete tasks
 
 ### Comments
@@ -133,6 +139,7 @@ Frontend defaults to http://localhost:5173 and backend to http://localhost:5000.
 
 - Notification feed per user
 - Mark individual notifications as read
+- Mark all notifications as read
 - Real-time notification delivery for key events:
   - User added to a workspace
   - Task assigned to user
@@ -168,6 +175,13 @@ Backend syntax check:
     cd backend
     node -c server.js
 
+## Data Fetching Strategy
+
+- Server state is managed with TanStack Query in the frontend.
+- Query cache is used for projects, tasks, members, activities, and insights.
+- Mutations use optimistic cache updates with rollback where appropriate.
+- Background refetch and deduplication are handled by query keys.
+
 ## Troubleshooting
 
 ### Port already in use
@@ -197,4 +211,4 @@ Backend syntax check:
 
 ## License
 
-No explicit license file is currently included in the repository.
+This repository is licensed under the terms in LICENSE.
