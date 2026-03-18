@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getProjects,
@@ -43,14 +44,14 @@ interface WorkspaceMember {
 
 function WorkspacePage() {
   const { workspaceId } = useParams();
+  const queryClient = useQueryClient();
+  const projectsQueryKey = useMemo(
+    () => ["workspace-projects", workspaceId] as const,
+    [workspaceId],
+  );
 
-  const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(
-    null,
-  );
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
@@ -102,30 +103,23 @@ function WorkspacePage() {
   );
   const navigate = useNavigate();
 
-  const fetchProjects = useCallback(async (): Promise<Project[]> => {
-    try {
+  const {
+    data: projects = [],
+    isLoading,
+    error: projectsQueryError,
+    refetch: refetchProjects,
+  } = useQuery<Project[], unknown>({
+    queryKey: projectsQueryKey,
+    queryFn: async () => {
       if (!workspaceId) return [];
-      setProjectsLoadError(null);
-      const data = await getProjects(workspaceId);
-      return data;
-    } catch (error) {
-      console.error(error);
-      const message = getApiErrorMessage(
-        error,
-        "Failed to load projects. Retry?",
-      );
-      setProjectsLoadError(message);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  }, [workspaceId]);
+      return getProjects(workspaceId);
+    },
+    enabled: Boolean(workspaceId),
+  });
 
-  useEffect(() => {
-    void fetchProjects().then((data) => {
-      setProjects(data);
-    });
-  }, [fetchProjects]);
+  const projectsLoadError = projectsQueryError
+    ? getApiErrorMessage(projectsQueryError, "Failed to load projects. Retry?")
+    : null;
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -279,14 +273,30 @@ function WorkspacePage() {
 
     try {
       setIsCreating(true);
-      await createProject(workspaceId, {
+      const response = await createProject(workspaceId, {
         name: projectName,
         description: projectDescription || undefined,
       });
       setName("");
       setDescription("");
-      const data = await fetchProjects();
-      setProjects(data);
+
+      const createdProject =
+        typeof response === "object" &&
+        response !== null &&
+        "project" in response &&
+        typeof (response as { project?: unknown }).project === "object"
+          ? ((response as { project: Project }).project as Project)
+          : null;
+
+      if (createdProject) {
+        queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) => [
+          createdProject,
+          ...(previous || []),
+        ]);
+      } else {
+        await queryClient.invalidateQueries({ queryKey: projectsQueryKey });
+      }
+
       toast.success("Project created");
     } catch (error) {
       console.error(error);
@@ -307,8 +317,10 @@ function WorkspacePage() {
     try {
       setIsDeleting(true);
       await deleteProject(workspaceId, projectToDelete.id);
-      setProjects((prev) =>
-        prev.filter((project) => project._id !== projectToDelete.id),
+      queryClient.setQueryData<Project[]>(projectsQueryKey, (previous) =>
+        (previous || []).filter(
+          (project) => project._id !== projectToDelete.id,
+        ),
       );
       toast.success("Project deleted");
       setProjectToDelete(null);
@@ -465,10 +477,7 @@ function WorkspacePage() {
                   title="Failed to load projects"
                   message={projectsLoadError}
                   onRetry={() => {
-                    setIsLoading(true);
-                    void fetchProjects().then((data) => {
-                      setProjects(data);
-                    });
+                    void refetchProjects();
                   }}
                 />
               </div>

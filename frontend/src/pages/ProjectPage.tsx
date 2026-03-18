@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import {
   getTasks,
@@ -483,12 +484,14 @@ const DroppableColumn = ({
 
 function ProjectPage() {
   const { projectId } = useParams();
+  const queryClient = useQueryClient();
+  const tasksQueryKey = useMemo(
+    () => ["project-tasks", projectId] as const,
+    [projectId],
+  );
 
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [tasksLoadError, setTasksLoadError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<ProjectAssignee[]>([]);
@@ -559,6 +562,34 @@ function ProjectPage() {
     }),
   );
 
+  const {
+    data: tasks = [],
+    isLoading,
+    error: tasksQueryError,
+    refetch: refetchTasks,
+  } = useQuery<Task[], unknown>({
+    queryKey: tasksQueryKey,
+    queryFn: async () => {
+      if (!projectId) return [];
+      return getTasks(projectId);
+    },
+    enabled: Boolean(projectId),
+  });
+
+  const tasksLoadError = tasksQueryError
+    ? getApiErrorMessage(tasksQueryError, "Failed to load tasks. Retry?")
+    : null;
+
+  const setTasksCache = useCallback(
+    (updater: (previous: Task[]) => Task[]) => {
+      if (!projectId) return;
+      queryClient.setQueryData<Task[]>(tasksQueryKey, (previous) =>
+        updater(previous || []),
+      );
+    },
+    [projectId, queryClient, tasksQueryKey],
+  );
+
   const refreshPendingOfflineActions = useCallback(() => {
     if (!projectId) {
       setPendingOfflineActions(0);
@@ -570,28 +601,6 @@ function ProjectPage() {
       getPendingOfflineAddedCommentIdsByTask(projectId),
     );
   }, [projectId]);
-
-  const fetchTasks = useCallback(async (): Promise<Task[]> => {
-    try {
-      if (!projectId) return [];
-      setTasksLoadError(null);
-      const data = await getTasks(projectId);
-      return data;
-    } catch (error) {
-      console.error(error);
-      const message = getApiErrorMessage(error, "Failed to load tasks. Retry?");
-      setTasksLoadError(message);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    void fetchTasks().then((data) => {
-      setTasks(data);
-    });
-  }, [fetchTasks]);
 
   useEffect(() => {
     refreshPendingOfflineActions();
@@ -633,8 +642,7 @@ function ProjectPage() {
       const result = await syncOfflineActions(projectId);
 
       if (result.syncedCount > 0) {
-        const freshTasks = await fetchTasks();
-        setTasks(freshTasks);
+        await refetchTasks();
 
         if (commentTaskIdsToRefresh.length > 0) {
           const refreshedComments = await Promise.all(
@@ -673,10 +681,10 @@ function ProjectPage() {
       refreshPendingOfflineActions();
     }
   }, [
-    fetchTasks,
     isOnline,
     isSyncingOfflineActions,
     projectId,
+    refetchTasks,
     refreshPendingOfflineActions,
   ]);
 
@@ -793,7 +801,7 @@ function ProjectPage() {
       createdBy: optimisticCreator,
     };
 
-    setTasks((prev) => [optimisticTask, ...prev]);
+    setTasksCache((prev) => [optimisticTask, ...prev]);
     setTitle("");
     setIsCreating(true);
 
@@ -819,19 +827,17 @@ function ProjectPage() {
       if (res.task) {
         const createdTask = res.task;
 
-        setTasks((prev) =>
+        setTasksCache((prev) =>
           prev.map((t) => (t._id === tempId ? createdTask : t)),
         );
       }
-      const freshTasks = await fetchTasks();
-      setTasks(freshTasks);
       setAssigneeId("");
       setDescription("");
       setPriority("medium");
       toast.success("Task created");
     } catch (error) {
       console.error(error);
-      setTasks((prev) => prev.filter((t) => t._id !== tempId));
+      setTasksCache((prev) => prev.filter((t) => t._id !== tempId));
       toast.error("Unable to create task");
     } finally {
       setIsCreating(false);
@@ -845,7 +851,7 @@ function ProjectPage() {
 
     setUpdatingTaskId(taskId);
 
-    setTasks((prev) =>
+    setTasksCache((prev) =>
       prev.map((t) => (t._id === taskId ? { ...t, status } : t)),
     );
 
@@ -871,12 +877,10 @@ function ProjectPage() {
       const res = await updateTaskStatus(taskId, status);
 
       if (res.task) {
-        setTasks((prev) =>
+        setTasksCache((prev) =>
           prev.map((t) => (t._id === taskId ? { ...t, ...res.task } : t)),
         );
       }
-      const freshTasks = await fetchTasks();
-      setTasks(freshTasks);
     } catch (error) {
       console.error(error);
 
@@ -893,7 +897,7 @@ function ProjectPage() {
         refreshPendingOfflineActions();
         toast("Saved offline. Status change will sync.");
       } else {
-        setTasks(previous);
+        queryClient.setQueryData(tasksQueryKey, previous);
         toast.error("Unable to update task status");
       }
     } finally {
@@ -911,7 +915,7 @@ function ProjectPage() {
       : undefined;
 
     setUpdatingTaskId(taskId);
-    setTasks((prev) =>
+    setTasksCache((prev) =>
       prev.map((task) =>
         task._id === taskId
           ? {
@@ -950,18 +954,15 @@ function ProjectPage() {
       const res = await updateTaskAssignee(taskId, nextAssigneeId);
 
       if (res.task) {
-        setTasks((prev) =>
+        setTasksCache((prev) =>
           prev.map((task) =>
             task._id === taskId ? { ...task, ...res.task } : task,
           ),
         );
       }
-
-      const freshTasks = await fetchTasks();
-      setTasks(freshTasks);
     } catch (error) {
       console.error(error);
-      setTasks(previous);
+      queryClient.setQueryData(tasksQueryKey, previous);
       toast.error("Unable to update assignee");
     } finally {
       setUpdatingTaskId(null);
@@ -977,7 +978,7 @@ function ProjectPage() {
     if (!task || task.priority === nextPriority) return;
 
     setUpdatingTaskId(taskId);
-    setTasks((prev) =>
+    setTasksCache((prev) =>
       prev.map((item) =>
         item._id === taskId ? { ...item, priority: nextPriority } : item,
       ),
@@ -1005,18 +1006,15 @@ function ProjectPage() {
       const res = await updateTaskPriority(taskId, nextPriority);
 
       if (res.task) {
-        setTasks((prev) =>
+        setTasksCache((prev) =>
           prev.map((item) =>
             item._id === taskId ? { ...item, ...res.task } : item,
           ),
         );
       }
-
-      const freshTasks = await fetchTasks();
-      setTasks(freshTasks);
     } catch (error) {
       console.error(error);
-      setTasks(previous);
+      queryClient.setQueryData(tasksQueryKey, previous);
       toast.error("Unable to update priority");
     } finally {
       setUpdatingTaskId(null);
@@ -1183,7 +1181,9 @@ function ProjectPage() {
     const previous = tasks;
     setIsDeletingTask(true);
     setUpdatingTaskId(taskToDelete.id);
-    setTasks((prev) => prev.filter((task) => task._id !== taskToDelete.id));
+    setTasksCache((prev) =>
+      prev.filter((task) => task._id !== taskToDelete.id),
+    );
 
     if (!projectId) {
       setIsDeletingTask(false);
@@ -1224,7 +1224,7 @@ function ProjectPage() {
       setTaskToDelete(null);
     } catch (error) {
       console.error(error);
-      setTasks(previous);
+      queryClient.setQueryData(tasksQueryKey, previous);
       toast.error("Unable to delete task");
     } finally {
       setIsDeletingTask(false);
@@ -1369,7 +1369,7 @@ function ProjectPage() {
       if (event.projectId !== projectId) return;
       const { task } = event;
 
-      setTasks((prev) => {
+      setTasksCache((prev) => {
         const exists = prev.find((t) => t._id === task._id);
         if (exists) return prev;
 
@@ -1384,7 +1384,7 @@ function ProjectPage() {
       if (event.projectId !== projectId) return;
       const { task } = event;
 
-      setTasks((prev) => {
+      setTasksCache((prev) => {
         const exists = prev.some((t) => t._id === task._id);
         if (!exists) return [task, ...prev];
         return prev.map((t) => (t._id === task._id ? task : t));
@@ -1393,7 +1393,7 @@ function ProjectPage() {
 
     const handleTaskDeleted = (event: TaskDeletedEvent) => {
       if (event.projectId !== projectId) return;
-      setTasks((prev) => prev.filter((t) => t._id !== event.taskId));
+      setTasksCache((prev) => prev.filter((t) => t._id !== event.taskId));
       setCommentsByTask((prev) => {
         const next = { ...prev };
         delete next[event.taskId];
@@ -1552,10 +1552,7 @@ function ProjectPage() {
           title="Failed to load tasks"
           message={tasksLoadError}
           onRetry={() => {
-            setIsLoading(true);
-            void fetchTasks().then((data) => {
-              setTasks(data);
-            });
+            void refetchTasks();
           }}
         />
       )}
