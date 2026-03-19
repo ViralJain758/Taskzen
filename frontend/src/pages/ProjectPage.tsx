@@ -52,6 +52,9 @@ import {
   syncOfflineActions,
 } from "../utils";
 
+const isLatencyToolsEnabled =
+  (import.meta.env.VITE_APP_ENV || "").toLowerCase() === "dev";
+
 type TaskStatus = "todo" | "in_progress" | "completed";
 type TaskPriority = "low" | "medium" | "high";
 
@@ -493,6 +496,15 @@ function ProjectPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [latency, setLatency] = useState<number | null>(null);
+  const [latencySource, setLatencySource] = useState<"socket" | "http" | null>(
+    null,
+  );
+  const [latencyStatus, setLatencyStatus] = useState<
+    "idle" | "testing" | "success" | "timeout" | "disconnected"
+  >("idle");
+  const [isTestingLatency, setIsTestingLatency] = useState(false);
+  const latencyTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<ProjectAssignee[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
@@ -1352,6 +1364,118 @@ function ProjectPage() {
     void moveTask(activeTaskId, overStatus);
   };
 
+  const runHttpLatencyFallback = useCallback(async () => {
+    try {
+      const apiBase =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const pingUrl = apiBase.replace(/\/api\/?$/, "/");
+      const start = performance.now();
+      await fetch(pingUrl, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+      return Math.round(performance.now() - start);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const testLatency = useCallback(async () => {
+    setIsTestingLatency(true);
+    setLatencyStatus("testing");
+
+    const applySuccess = (value: number, source: "socket" | "http") => {
+      setLatency(value);
+      setLatencySource(source);
+      setLatencyStatus("success");
+
+      if (latencyTimeoutRef.current) {
+        clearTimeout(latencyTimeoutRef.current);
+      }
+
+      latencyTimeoutRef.current = setTimeout(() => {
+        setLatency(null);
+        setLatencySource(null);
+      }, 3000);
+    };
+
+    const fallbackLatency = await runHttpLatencyFallback();
+
+    if (!socket.connected) {
+      if (fallbackLatency !== null) {
+        applySuccess(fallbackLatency, "http");
+      } else {
+        setLatency(null);
+        setLatencySource(null);
+        setLatencyStatus("disconnected");
+      }
+      setIsTestingLatency(false);
+      return;
+    }
+
+    const start = Date.now();
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+
+      const finalize = (
+        value: number | null,
+        source: "socket" | "http" | null,
+      ) => {
+        if (settled) return;
+        settled = true;
+
+        if (value !== null && source) {
+          applySuccess(value, source);
+        } else {
+          setLatency(null);
+          setLatencySource(null);
+          setLatencyStatus("timeout");
+        }
+
+        setIsTestingLatency(false);
+        resolve();
+      };
+
+      const onResponseFallback = (startTimeFromEvent: number) => {
+        clearTimeout(timeout);
+        socket.off("latency:response", onResponseFallback);
+        finalize(Date.now() - startTimeFromEvent, "socket");
+      };
+
+      const timeout = setTimeout(async () => {
+        socket.off("latency:response", onResponseFallback);
+        const httpLatency = await runHttpLatencyFallback();
+        if (httpLatency !== null) {
+          finalize(httpLatency, "http");
+          return;
+        }
+        finalize(null, null);
+      }, 5000);
+
+      socket.on("latency:response", onResponseFallback);
+
+      socket.emit(
+        "latency:test",
+        start,
+        (payload?: { startTime?: number; serverTime?: number }) => {
+          if (settled) return;
+          clearTimeout(timeout);
+          socket.off("latency:response", onResponseFallback);
+
+          const ackStartTime = payload?.startTime;
+          if (typeof ackStartTime === "number") {
+            finalize(Date.now() - ackStartTime, "socket");
+            return;
+          }
+
+          finalize(Date.now() - start, "socket");
+        },
+      );
+    });
+  }, [runHttpLatencyFallback]);
+
   useEffect(() => {
     if (!projectId) return;
 
@@ -1361,9 +1485,21 @@ function ProjectPage() {
 
     if (socket.connected) {
       joinCurrentProject();
+      if (isLatencyToolsEnabled) {
+        // Test latency when component mounts if socket is connected
+        void testLatency();
+      }
     }
 
-    socket.on("connect", joinCurrentProject);
+    const handleConnect = () => {
+      joinCurrentProject();
+      if (isLatencyToolsEnabled) {
+        // Test latency on reconnection
+        void testLatency();
+      }
+    };
+
+    socket.on("connect", handleConnect);
 
     const handleTaskCreated = (event: TaskCreatedEvent) => {
       if (event.projectId !== projectId) return;
@@ -1439,24 +1575,50 @@ function ProjectPage() {
 
     return () => {
       leaveProjectRoom(projectId);
-      socket.off("connect", joinCurrentProject);
+      socket.off("connect", handleConnect);
       socket.off("project:task_created", handleTaskCreated);
       socket.off("project:task_updated", handleTaskUpdated);
       socket.off("project:task_deleted", handleTaskDeleted);
       socket.off("project:comment_created", handleCommentCreated);
       socket.off("project:comment_deleted", handleCommentDeleted);
+      // Clean up latency timeout if pending
+      if (latencyTimeoutRef.current) {
+        clearTimeout(latencyTimeoutRef.current);
+      }
     };
-  }, [projectId, setTasksCache]);
+  }, [projectId, setTasksCache, testLatency]);
 
   return (
     <div className="fade-up space-y-5">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-          Project
-        </p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
-          Task Board
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
+            Project
+          </p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+            Task Board
+          </h1>
+        </div>
+        {isLatencyToolsEnabled && (
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={() => void testLatency()}
+              disabled={isTestingLatency}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isTestingLatency ? "Testing..." : "Test Latency"}
+            </button>
+            <span className="text-xs font-semibold text-slate-600">
+              {latencyStatus === "testing" && "Testing latency..."}
+              {latencyStatus === "success" &&
+                latency !== null &&
+                `🔗 ${latency}ms${latencySource === "http" ? " (http fallback)" : " (socket)"}`}
+              {latencyStatus === "timeout" && "Latency timeout (no response)"}
+              {latencyStatus === "disconnected" && "Socket disconnected"}
+              {latencyStatus === "idle" && "Latency not tested yet"}
+            </span>
+          </div>
+        )}
       </div>
       <p className="text-sm text-slate-600">
         Drag tasks across columns and assign owners directly from each card.

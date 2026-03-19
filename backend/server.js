@@ -91,7 +91,15 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
+  console.log("[Socket] User connected:", socket.userId);
+
   // Join user to their notification room
+  socket.on("latency:test", (startTime, ack) => {
+    console.log("[Socket] latency:test received, startTime:", startTime);
+    ack?.({ startTime, serverTime: Date.now() });
+    socket.emit("latency:response", startTime);
+    console.log("[Socket] latency:response emitted");
+  });
   if (socket.userId) {
     socket.join(socket.userId);
   }
