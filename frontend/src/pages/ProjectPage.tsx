@@ -53,7 +53,7 @@ import {
 } from "../utils";
 
 const isLatencyToolsEnabled =
-  (import.meta.env.VITE_APP_ENV || "").toLowerCase() === "dev";
+  (import.meta.env.VITE_SHOW_LATENCY_BUTTON || "").toLowerCase() === "true";
 
 type TaskStatus = "todo" | "in_progress" | "completed";
 type TaskPriority = "low" | "medium" | "high";
