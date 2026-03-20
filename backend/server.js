@@ -8,6 +8,9 @@ import morgan from "morgan";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { rateLimit } from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
+import xss from "xss-clean";
+import hpp from "hpp";
 
 import connectDB from "./src/config/db.js";
 import { registerRoutes } from "./src/routes/index.js";
@@ -41,8 +44,18 @@ app.use(
   }),
 );
 
-app.use(express.json());
+// Body parser, reading data from body into req.body. Limit payload size to 10kb
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
+
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Data sanitization against XSS
+app.use(xss());
+
+// Prevent HTTP parameter pollution
+app.use(hpp());
 
 app.use(helmet());
 
