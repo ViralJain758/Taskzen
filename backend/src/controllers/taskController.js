@@ -4,6 +4,8 @@ import Notification from "../models/Notification.js";
 import Membership from "../models/Membership.js";
 import Activity from "../models/Activity.js";
 
+const INTERNAL_SERVER_ERROR = "Internal server error";
+
 const statusLabels = {
   todo: "To Do",
   in_progress: "In Progress",
@@ -38,6 +40,19 @@ export const createTask = async (req, res) => {
       return res.status(403).json({
         message: "You are not a member of this workspace",
       });
+    }
+
+    if (assignee) {
+      const assigneeMembership = await Membership.findOne({
+        user: assignee,
+        workspace: project.workspace,
+      });
+
+      if (!assigneeMembership) {
+        return res.status(400).json({
+          message: "Assignee must be a member of this workspace",
+        });
+      }
     }
 
     const task = await Task.create({
@@ -119,7 +134,7 @@ export const createTask = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -129,7 +144,7 @@ export const getProjectTasks = async (req, res) => {
     const { projectId } = req.params;
 
     const project = await Project.findById(projectId);
-    
+
     if (!project) {
       return res.status(404).json({
         message: "Project not found",
@@ -157,7 +172,7 @@ export const getProjectTasks = async (req, res) => {
     res.json(tasks);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -201,7 +216,7 @@ export const getProjectAssignees = async (req, res) => {
     res.json(assignees);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -301,7 +316,7 @@ export const updateTaskStatus = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -310,14 +325,28 @@ export const updateTask = async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const updates = { ...req.body };
+    const allowedFields = [
+      "title",
+      "description",
+      "priority",
+      "assignee",
+      "dueDate",
+    ];
+    const updates = {};
+
+    allowedFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updates[field] = req.body[field];
+      }
+    });
+
     if (Object.prototype.hasOwnProperty.call(updates, "assignee")) {
       updates.assignee = updates.assignee || null;
     }
 
     // Get the original task to check if assignee is being changed
     const originalTask = await Task.findById(taskId).populate("project");
-    
+
     if (!originalTask) {
       return res.status(404).json({
         message: "Task not found",
@@ -333,6 +362,19 @@ export const updateTask = async (req, res) => {
       return res.status(403).json({
         message: "You are not a member of this workspace",
       });
+    }
+
+    if (updates.assignee) {
+      const assigneeMembership = await Membership.findOne({
+        user: updates.assignee,
+        workspace: originalTask.project.workspace,
+      });
+
+      if (!assigneeMembership) {
+        return res.status(400).json({
+          message: "Assignee must be a member of this workspace",
+        });
+      }
     }
 
     const isAssigneeChanging =
@@ -401,7 +443,7 @@ export const updateTask = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };
@@ -463,7 +505,7 @@ export const deleteTask = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: INTERNAL_SERVER_ERROR,
     });
   }
 };

@@ -44,7 +44,7 @@ export const createProject = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -60,7 +60,7 @@ export const getWorkspaceProjects = async (req, res) => {
     res.json(projects);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -93,7 +93,7 @@ export const getProjectById = async (req, res) => {
     res.json(project);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -138,7 +138,7 @@ export const deleteProject = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -195,7 +195,7 @@ export const getProjectInsights = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };

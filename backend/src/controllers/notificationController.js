@@ -9,7 +9,7 @@ export const getUserNotifications = async (req, res) => {
     res.json(notifications);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -31,7 +31,7 @@ export const markAsRead = async (req, res) => {
     res.json(notification);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };

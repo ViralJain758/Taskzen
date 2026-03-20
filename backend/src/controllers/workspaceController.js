@@ -33,7 +33,7 @@ export const createWorkspace = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -52,7 +52,7 @@ export const getUserWorkspaces = async (req, res) => {
     res.json(workspaces);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -124,7 +124,7 @@ export const inviteMember = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -181,7 +181,7 @@ export const getWorkspaceMembers = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -252,7 +252,7 @@ export const updateWorkspaceMemberRole = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -309,7 +309,7 @@ export const removeWorkspaceMember = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -334,7 +334,7 @@ export const leaveWorkspace = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -369,7 +369,7 @@ export const deleteWorkspace = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };

@@ -32,7 +32,7 @@ export const getProjectActivities = async (req, res) => {
     res.json(activities);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -80,7 +80,7 @@ export const getWorkspaceActivities = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };

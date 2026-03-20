@@ -9,7 +9,6 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { rateLimit } from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
-import xss from "xss-clean";
 import hpp from "hpp";
 
 import connectDB from "./src/config/db.js";
@@ -48,11 +47,47 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
+// Express 5 exposes req.query as a getter-only property, so avoid assigning it.
+const sanitizeObject = mongoSanitize.sanitize;
+app.use((req, res, next) => {
+  ["body", "params", "headers"].forEach((key) => {
+    if (req[key]) {
+      sanitizeObject(req[key]);
+    }
+  });
+  next();
+});
 
-// Data sanitization against XSS
-app.use(xss());
+// Minimal in-place XSS sanitization compatible with Express 5 request objects.
+const sanitizeValue = (value) => {
+  if (typeof value === "string") {
+    return value
+      .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, "")
+      .replace(/javascript:/gi, "")
+      .replace(/on\w+\s*=\s*/gi, "");
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+
+  if (value && typeof value === "object") {
+    Object.keys(value).forEach((key) => {
+      value[key] = sanitizeValue(value[key]);
+    });
+  }
+
+  return value;
+};
+
+app.use((req, res, next) => {
+  ["body", "params", "query"].forEach((key) => {
+    if (req[key]) {
+      sanitizeValue(req[key]);
+    }
+  });
+  next();
+});
 
 // Prevent HTTP parameter pollution
 app.use(hpp());
@@ -60,7 +95,10 @@ app.use(hpp());
 app.use(helmet());
 
 app.use((req, res, next) => {
-  if (process.env.NODE_ENV === "production" && req.headers["x-forwarded-proto"] !== "https") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    req.headers["x-forwarded-proto"] !== "https"
+  ) {
     return res.redirect(["https://", req.get("Host"), req.url].join(""));
   }
   next();
@@ -72,7 +110,7 @@ app.use(
     stream: {
       write: (message) => logger.info(message.trim()),
     },
-  })
+  }),
 );
 
 app.use((req, res, next) => {
@@ -85,11 +123,14 @@ app.get("/", (req, res) => {
 });
 
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 150, 
-  message: { message: "Too many requests from this IP, please try again after 15 minutes" },
-  standardHeaders: true, 
-  legacyHeaders: false, 
+  windowMs: 15 * 60 * 1000,
+  max: 150,
+  message: {
+    message:
+      "Too many requests from this IP, please try again after 15 minutes",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use("/api", globalLimiter);
 

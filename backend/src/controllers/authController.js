@@ -41,7 +41,7 @@ export const register = async (req, res) => {
     logger.info(`New user registered successfully: ${email} (ID: ${user._id})`);
   } catch (error) {
     logger.error(`Registration error for ${req.body.email}: ${error.message}`);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -76,6 +76,6 @@ export const login = async (req, res) => {
     logger.info(`User logged in successfully: ${email} (ID: ${user._id})`);
   } catch (error) {
     logger.error(`Login error for ${req.body.email}: ${error.message}`);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Internal server error" });
   }
 };

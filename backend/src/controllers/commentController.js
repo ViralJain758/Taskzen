@@ -92,7 +92,7 @@ export const addComment = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -129,7 +129,7 @@ export const getTaskComments = async (req, res) => {
     res.json(comments);
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -204,7 +204,7 @@ export const deleteComment = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
