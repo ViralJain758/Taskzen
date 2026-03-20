@@ -9,7 +9,6 @@ import ProjectPage from "../pages/ProjectPage";
 import Register from "../pages/Register";
 import Terms from "../pages/Terms";
 import WorkspacePage from "../pages/WorkspacePage";
-
 export default function AppRouter() {
   return (
     <BrowserRouter>
