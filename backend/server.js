@@ -3,11 +3,14 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import http from "http";
+import helmet from "helmet";
+import morgan from "morgan";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 
 import connectDB from "./src/config/db.js";
 import { registerRoutes } from "./src/routes/index.js";
+import logger from "./src/utils/logger.js";
 
 dotenv.config();
 
@@ -39,6 +42,24 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+
+app.use(helmet());
+
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "production" && req.headers["x-forwarded-proto"] !== "https") {
+    return res.redirect(["https://", req.get("Host"), req.url].join(""));
+  }
+  next();
+});
+
+const morganFormat = process.env.NODE_ENV === "production" ? "combined" : "dev";
+app.use(
+  morgan(morganFormat, {
+    stream: {
+      write: (message) => logger.info(message.trim()),
+    },
+  })
+);
 
 app.use((req, res, next) => {
   req.io = io;

@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import logger from "../utils/logger.js";
 
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -15,6 +16,7 @@ export const register = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
+      logger.warn(`Failed registration attempt: Email already exists - ${email}`);
       return res.status(400).json({ message: "User already exists" });
     }
 
@@ -36,7 +38,9 @@ export const register = async (req, res) => {
       token,
       user: safeUser,
     });
+    logger.info(`New user registered successfully: ${email} (ID: ${user._id})`);
   } catch (error) {
+    logger.error(`Registration error for ${req.body.email}: ${error.message}`);
     res.status(500).json({ message: error.message });
   }
 };
@@ -48,12 +52,14 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
+      logger.warn(`Failed login attempt: Invalid email - ${email}`);
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
+      logger.warn(`Failed login attempt: Incorrect password - ${email}`);
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
@@ -67,7 +73,9 @@ export const login = async (req, res) => {
       token,
       user: safeUser,
     });
+    logger.info(`User logged in successfully: ${email} (ID: ${user._id})`);
   } catch (error) {
+    logger.error(`Login error for ${req.body.email}: ${error.message}`);
     res.status(500).json({ message: error.message });
   }
 };
