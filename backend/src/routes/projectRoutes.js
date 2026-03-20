@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorizeWorkspaceRole } from "../middleware/workspaceRoleMiddleware.js";
+import { rateLimit } from "express-rate-limit";
 import {
   createProject,
   getWorkspaceProjects,
@@ -11,9 +12,15 @@ import {
 
 const router = express.Router();
 
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, 
+  max: 5, 
+  message: { message: "Too many AI insight generation requests. Please try again in an hour." },
+});
+
 router.get("/detail/:projectId", protect, getProjectById);
 
-router.get("/insights/:projectId", protect, getProjectInsights);
+router.get("/insights/:projectId", protect, aiLimiter, getProjectInsights);
 
 router.post(
   "/:workspaceId",

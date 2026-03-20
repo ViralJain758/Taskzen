@@ -7,6 +7,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import { rateLimit } from "express-rate-limit";
 
 import connectDB from "./src/config/db.js";
 import { registerRoutes } from "./src/routes/index.js";
@@ -69,6 +70,15 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   res.send("Taskzen API running");
 });
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 150, 
+  message: { message: "Too many requests from this IP, please try again after 15 minutes" },
+  standardHeaders: true, 
+  legacyHeaders: false, 
+});
+app.use("/api", globalLimiter);
 
 registerRoutes(app);
 
