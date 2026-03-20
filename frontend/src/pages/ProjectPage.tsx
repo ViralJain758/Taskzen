@@ -52,8 +52,15 @@ import {
   syncOfflineActions,
 } from "../utils";
 
+const latencyToggleRaw = import.meta.env.VITE_SHOW_LATENCY_BUTTON;
+const latencyToggleValue = String(latencyToggleRaw || "")
+  .trim()
+  .toLowerCase();
+
+// If variable exists, default to enabled unless explicitly turned off.
 const isLatencyToolsEnabled =
-  (import.meta.env.VITE_SHOW_LATENCY_BUTTON || "").toLowerCase() === "true";
+  latencyToggleRaw !== undefined &&
+  !["false", "0", "off", "no"].includes(latencyToggleValue);
 
 type TaskStatus = "todo" | "in_progress" | "completed";
 type TaskPriority = "low" | "medium" | "high";
