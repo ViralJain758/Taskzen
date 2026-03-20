@@ -5,18 +5,21 @@ const notificationSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Notification user is required"],
     },
 
     message: {
       type: String,
-      required: true,
+      required: [true, "Notification message is required"],
+      trim: true,
+      minlength: [1, "Notification message is required"],
+      maxlength: [500, "Notification message cannot exceed 500 characters"],
     },
 
     type: {
       type: String,
       enum: ["task", "comment", "workspace"],
-      required: true,
+      required: [true, "Notification type is required"],
     },
 
     isRead: {
@@ -26,6 +29,7 @@ const notificationSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: "throw",
   },
 );
 

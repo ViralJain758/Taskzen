@@ -5,7 +5,7 @@ const activitySchema = new mongoose.Schema(
     workspace: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Workspace",
-      required: true,
+      required: [true, "Workspace is required"],
       index: true,
     },
     project: {
@@ -15,19 +15,27 @@ const activitySchema = new mongoose.Schema(
     },
     projectName: {
       type: String,
+      trim: true,
+      maxlength: [120, "Project name cannot exceed 120 characters"],
     },
     actor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Actor is required"],
     },
     actorName: {
       type: String,
-      required: true,
+      required: [true, "Actor name is required"],
+      trim: true,
+      minlength: [1, "Actor name is required"],
+      maxlength: [120, "Actor name cannot exceed 120 characters"],
     },
     message: {
       type: String,
-      required: true,
+      required: [true, "Activity message is required"],
+      trim: true,
+      minlength: [1, "Activity message is required"],
+      maxlength: [1000, "Activity message cannot exceed 1000 characters"],
     },
     type: {
       type: String,
@@ -44,7 +52,7 @@ const activitySchema = new mongoose.Schema(
         "member_removed",
         "member_role_updated",
       ],
-      required: true,
+      required: [true, "Activity type is required"],
     },
     task: {
       type: mongoose.Schema.Types.ObjectId,
@@ -52,6 +60,8 @@ const activitySchema = new mongoose.Schema(
     },
     taskTitle: {
       type: String,
+      trim: true,
+      maxlength: [200, "Task title cannot exceed 200 characters"],
     },
     fromStatus: {
       type: String,
@@ -67,10 +77,13 @@ const activitySchema = new mongoose.Schema(
     },
     targetUserName: {
       type: String,
+      trim: true,
+      maxlength: [120, "Target user name cannot exceed 120 characters"],
     },
   },
   {
     timestamps: true,
+    strict: "throw",
   },
 );
 

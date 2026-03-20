@@ -4,11 +4,16 @@ const taskSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: true,
+      required: [true, "Task title is required"],
+      trim: true,
+      minlength: [1, "Task title is required"],
+      maxlength: [200, "Task title cannot exceed 200 characters"],
     },
 
     description: {
       type: String,
+      trim: true,
+      maxlength: [5000, "Description cannot exceed 5000 characters"],
     },
 
     status: {
@@ -26,7 +31,7 @@ const taskSchema = new mongoose.Schema(
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
-      required: true,
+      required: [true, "Project is required"],
     },
 
     assignee: {
@@ -37,7 +42,7 @@ const taskSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Task creator is required"],
     },
 
     dueDate: {
@@ -46,6 +51,7 @@ const taskSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: "throw",
   },
 );
 
