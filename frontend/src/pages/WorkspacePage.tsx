@@ -26,33 +26,12 @@ import socket, {
 import toast from "react-hot-toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 import LoadErrorCard from "../components/LoadErrorCard";
-
-interface Project {
-  _id: string;
-  name: string;
-  description?: string;
-}
-
-interface WorkspaceMember {
-  user: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  role: "owner" | "admin" | "member";
-}
-
-interface MembersQueryData {
-  members: WorkspaceMember[];
-  canManageMembers: boolean;
-  canManageRoles: boolean;
-  pagination: MembersPaginationMeta;
-}
-
-interface ActivitiesQueryData {
-  activities: ActivityItem[];
-  pagination: ActivityPaginationMeta;
-}
+import type {
+  ActivitiesQueryData,
+  MembersQueryData,
+  Project,
+  WorkspaceMember,
+} from "./workspace-page/types";
 
 function WorkspacePage() {
   const { workspaceId } = useParams();
