@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { ApiErrorResponse } from "../types/api.ts";
 import toast from "react-hot-toast";
 import { AuthContext } from "../context/auth-context.ts";
+import { getApiErrorMessage } from "../utils/apiError";
 
 function Register() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ function Register() {
       navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
-        toast.error(error.response?.data?.message || "Registration failed");
+        toast.error(getApiErrorMessage(error, "Registration failed"));
         return;
       }
 

@@ -413,40 +413,48 @@ export const updateTask = async (req, res) => {
       task: updatedTask,
     });
 
-    // Create notification if assignee changed
+    // Create notification/activity if assignee changed.
+    // These side effects should not block a successful task update response.
     if (isAssigneeChanging && updates.assignee) {
-      await Notification.create({
-        user: updates.assignee,
-        message: "You were assigned a task",
-        type: "task",
-      });
-
-      const actorName = req.user?.name || "Someone";
-      const assigneeName = updatedTask.assignee?.name || "a member";
-      const activity = await Activity.create({
-        workspace: updatedTask.project.workspace,
-        project: updatedTask.project._id,
-        projectName: updatedTask.project.name,
-        actor: req.user._id,
-        actorName,
-        message: `${actorName} assigned task "${updatedTask.title}" to ${assigneeName}`,
-        type: "task_assigned",
-        task: updatedTask._id,
-        taskTitle: updatedTask.title,
-        targetUser: updates.assignee,
-        targetUserName: assigneeName,
-      });
-
-      req.io
-        .to(`workspace:${updatedTask.project.workspace.toString()}`)
-        .emit("workspace:activity_created", {
-          workspaceId: updatedTask.project.workspace.toString(),
-          activity,
+      try {
+        await Notification.create({
+          user: updates.assignee,
+          message: "You were assigned a task",
+          type: "task",
         });
 
-      req.io.to(updates.assignee.toString()).emit("notification", {
-        message: "You were assigned a task",
-      });
+        const actorName = req.user?.name || "Someone";
+        const assigneeName = updatedTask.assignee?.name || "a member";
+        const activity = await Activity.create({
+          workspace: updatedTask.project.workspace,
+          project: updatedTask.project._id,
+          projectName: updatedTask.project.name,
+          actor: req.user._id,
+          actorName,
+          message: `${actorName} assigned task "${updatedTask.title}" to ${assigneeName}`,
+          type: "task_assigned",
+          task: updatedTask._id,
+          taskTitle: updatedTask.title,
+          targetUser: updates.assignee,
+          targetUserName: assigneeName,
+        });
+
+        req.io
+          .to(`workspace:${updatedTask.project.workspace.toString()}`)
+          .emit("workspace:activity_created", {
+            workspaceId: updatedTask.project.workspace.toString(),
+            activity,
+          });
+
+        req.io.to(updates.assignee.toString()).emit("notification", {
+          message: "You were assigned a task",
+        });
+      } catch (assigneeSideEffectError) {
+        console.error(
+          "Failed to create assignee side effects:",
+          assigneeSideEffectError?.message || assigneeSideEffectError,
+        );
+      }
     }
 
     res.json({

@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/auth-context.ts";
 import type { ApiErrorResponse } from "../types/api.ts";
 import toast from "react-hot-toast";
+import { getApiErrorMessage } from "../utils/apiError";
 
 function Login() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ function Login() {
       navigate("/dashboard");
     } catch (error: unknown) {
       if (axios.isAxiosError<ApiErrorResponse>(error)) {
-        toast.error(error.response?.data?.message || "Invalid credentials");
+        toast.error(getApiErrorMessage(error, "Invalid credentials"));
         return;
       }
 
