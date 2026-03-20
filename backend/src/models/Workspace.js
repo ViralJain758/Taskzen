@@ -23,9 +23,8 @@ const workspaceSchema = new mongoose.Schema(
   },
 );
 
-workspaceSchema.pre("validate", function normalizeWorkspaceFields(next) {
+workspaceSchema.pre("validate", function normalizeWorkspaceFields() {
   normalizeStringField(this, "name");
-  next();
 });
 
 const Workspace = mongoose.model("Workspace", workspaceSchema);

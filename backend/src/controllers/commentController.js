@@ -24,11 +24,32 @@ export const addComment = async (req, res) => {
       });
     }
 
+    if (!task.project) {
+      return res.status(404).json({
+        message: "Project not found for this task",
+      });
+    }
+
+    if (!task.project.workspace) {
+      return res.status(409).json({
+        message: "Task project is missing workspace metadata",
+      });
+    }
+
+    const projectId = task.project._id?.toString();
+    const workspaceId = task.project.workspace?.toString();
+
+    if (!projectId || !workspaceId) {
+      return res.status(409).json({
+        message: "Task project metadata is invalid",
+      });
+    }
+
     const membership = await Membership.findOne({
       user: req.user._id,
       workspace: task.project.workspace,
     });
-    
+
     if (!membership) {
       return res.status(403).json({
         message: "You are not a member of this workspace",
@@ -46,44 +67,58 @@ export const addComment = async (req, res) => {
       "name email",
     );
 
-    req.io
-      .to(`project:${task.project._id.toString()}`)
-      .emit("project:comment_created", {
-        projectId: task.project._id.toString(),
-        taskId,
-        comment: populatedComment,
-      });
-
-    const actorName = req.user?.name || "Someone";
-    const activity = await Activity.create({
-      workspace: task.project.workspace,
-      project: task.project._id,
-      projectName: task.project.name,
-      actor: req.user._id,
-      actorName,
-      message: `${actorName} commented on task "${task.title}"`,
-      type: "comment_added",
-      task: task._id,
-      taskTitle: task.title,
+    req.io?.to(`project:${projectId}`).emit("project:comment_created", {
+      projectId,
+      taskId,
+      comment: populatedComment,
     });
 
-    req.io
-      .to(`workspace:${task.project.workspace.toString()}`)
-      .emit("workspace:activity_created", {
-        workspaceId: task.project.workspace.toString(),
-        activity,
+    const actorName = req.user?.name || "Someone";
+
+    try {
+      const activity = await Activity.create({
+        workspace: task.project.workspace,
+        project: task.project._id,
+        projectName: task.project.name,
+        actor: req.user._id,
+        actorName,
+        message: `${actorName} commented on task "${task.title}"`,
+        type: "comment_added",
+        task: task._id,
+        taskTitle: task.title,
       });
 
-    if (task.createdBy.toString() !== req.user._id.toString()) {
-      await Notification.create({
-        user: task.createdBy,
-        message: "New comment on your task",
-        type: "comment",
-      });
+      req.io
+        ?.to(`workspace:${workspaceId}`)
+        .emit("workspace:activity_created", {
+          workspaceId,
+          activity,
+        });
+    } catch (activityError) {
+      console.error(
+        "Failed to create comment activity:",
+        activityError?.message || activityError,
+      );
+    }
 
-      req.io.to(task.createdBy.toString()).emit("notification", {
-        message: "New comment on your task",
-      });
+    const createdById = task.createdBy?.toString();
+    if (createdById && createdById !== req.user._id.toString()) {
+      try {
+        await Notification.create({
+          user: task.createdBy,
+          message: "New comment on your task",
+          type: "comment",
+        });
+
+        req.io?.to(createdById).emit("notification", {
+          message: "New comment on your task",
+        });
+      } catch (notificationError) {
+        console.error(
+          "Failed to create comment notification:",
+          notificationError?.message || notificationError,
+        );
+      }
     }
 
     res.status(201).json({
@@ -91,6 +126,7 @@ export const addComment = async (req, res) => {
       comment: populatedComment,
     });
   } catch (error) {
+    console.error("Failed to add comment:", error?.message || error);
     res.status(500).json({
       message: "Internal server error",
     });
@@ -102,7 +138,7 @@ export const getTaskComments = async (req, res) => {
     const { taskId } = req.params;
 
     const task = await Task.findById(taskId).populate("project");
-    
+
     if (!task) {
       return res.status(404).json({
         message: "Task not found",
@@ -113,7 +149,7 @@ export const getTaskComments = async (req, res) => {
       user: req.user._id,
       workspace: task.project.workspace,
     });
-    
+
     if (!membership) {
       return res.status(403).json({
         message: "You are not a member of this workspace",

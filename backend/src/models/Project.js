@@ -35,10 +35,9 @@ const projectSchema = new mongoose.Schema(
   },
 );
 
-projectSchema.pre("validate", function normalizeProjectFields(next) {
+projectSchema.pre("validate", function normalizeProjectFields() {
   normalizeStringField(this, "name");
   normalizeStringField(this, "description");
-  next();
 });
 
 const Project = mongoose.model("Project", projectSchema);

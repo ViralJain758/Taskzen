@@ -29,9 +29,8 @@ const commentSchema = new mongoose.Schema(
   },
 );
 
-commentSchema.pre("validate", function normalizeCommentFields(next) {
+commentSchema.pre("validate", function normalizeCommentFields() {
   normalizeStringField(this, "content");
-  next();
 });
 
 const Comment = mongoose.model("Comment", commentSchema);

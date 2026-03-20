@@ -56,10 +56,9 @@ const taskSchema = new mongoose.Schema(
   },
 );
 
-taskSchema.pre("validate", function normalizeTaskFields(next) {
+taskSchema.pre("validate", function normalizeTaskFields() {
   normalizeStringField(this, "title");
   normalizeStringField(this, "description");
-  next();
 });
 
 const Task = mongoose.model("Task", taskSchema);

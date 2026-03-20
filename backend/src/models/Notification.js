@@ -34,9 +34,8 @@ const notificationSchema = new mongoose.Schema(
   },
 );
 
-notificationSchema.pre("validate", function normalizeNotificationFields(next) {
+notificationSchema.pre("validate", function normalizeNotificationFields() {
   normalizeStringField(this, "message");
-  next();
 });
 
 const Notification = mongoose.model("Notification", notificationSchema);

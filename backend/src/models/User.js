@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 }, { unique: true });
 
-userSchema.pre("validate", function normalizeUserFields(next) {
+userSchema.pre("validate", function normalizeUserFields() {
   normalizeStringField(this, "name");
 
   if (typeof this.email === "string") {
@@ -53,7 +53,6 @@ userSchema.pre("validate", function normalizeUserFields(next) {
   }
 
   normalizeStringField(this, "avatar");
-  next();
 });
 
 const User = mongoose.model("User", userSchema);

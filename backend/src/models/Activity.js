@@ -88,13 +88,12 @@ const activitySchema = new mongoose.Schema(
   },
 );
 
-activitySchema.pre("validate", function normalizeActivityFields(next) {
+activitySchema.pre("validate", function normalizeActivityFields() {
   normalizeStringField(this, "projectName");
   normalizeStringField(this, "actorName");
   normalizeStringField(this, "message");
   normalizeStringField(this, "taskTitle");
   normalizeStringField(this, "targetUserName");
-  next();
 });
 
 activitySchema.index({ workspace: 1, createdAt: -1 });
