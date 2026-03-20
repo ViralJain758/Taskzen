@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const activitySchema = new mongoose.Schema(
   {
@@ -86,6 +87,15 @@ const activitySchema = new mongoose.Schema(
     strict: "throw",
   },
 );
+
+activitySchema.pre("validate", function normalizeActivityFields(next) {
+  normalizeStringField(this, "projectName");
+  normalizeStringField(this, "actorName");
+  normalizeStringField(this, "message");
+  normalizeStringField(this, "taskTitle");
+  normalizeStringField(this, "targetUserName");
+  next();
+});
 
 activitySchema.index({ workspace: 1, createdAt: -1 });
 activitySchema.index({ project: 1, createdAt: -1 });

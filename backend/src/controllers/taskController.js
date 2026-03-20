@@ -284,31 +284,43 @@ export const updateTaskStatus = async (req, res) => {
     });
 
     const actorName = req.user?.name || "Someone";
-    const activity = await Activity.create({
-      workspace: task.project.workspace,
-      project: projectId,
-      projectName: task.project.name,
-      actor: req.user._id,
-      actorName,
-      message: `${actorName} moved task \"${task.title}\" to ${statusLabels[status]}`,
-      type: "task_status",
-      task: task._id,
-      taskTitle: task.title,
-      fromStatus: existingTask.status,
-      toStatus: status,
-    });
+    const fromStatus = validStatuses.includes(existingTask.status)
+      ? existingTask.status
+      : undefined;
 
-    req.io.to(`project:${projectId}`).emit("project:activity_created", {
-      projectId,
-      activity,
-    });
+    try {
+      const activity = await Activity.create({
+        workspace: task.project.workspace,
+        project: projectId,
+        projectName: task.project.name,
+        actor: req.user._id,
+        actorName,
+        message: `${actorName} moved task \"${task.title}\" to ${statusLabels[status] || status}`,
+        type: "task_status",
+        task: task._id,
+        taskTitle: task.title,
+        fromStatus,
+        toStatus: status,
+      });
 
-    req.io
-      .to(`workspace:${task.project.workspace.toString()}`)
-      .emit("workspace:activity_created", {
-        workspaceId: task.project.workspace.toString(),
+      req.io.to(`project:${projectId}`).emit("project:activity_created", {
+        projectId,
         activity,
       });
+
+      req.io
+        .to(`workspace:${task.project.workspace.toString()}`)
+        .emit("workspace:activity_created", {
+          workspaceId: task.project.workspace.toString(),
+          activity,
+        });
+    } catch (activityError) {
+      // Activity logging should not block a successful status update.
+      console.error(
+        "Failed to create task status activity:",
+        activityError?.message || activityError,
+      );
+    }
 
     res.json({
       message: "Task status updated",

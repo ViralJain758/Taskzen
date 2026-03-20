@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const commentSchema = new mongoose.Schema(
   {
@@ -27,6 +28,11 @@ const commentSchema = new mongoose.Schema(
     strict: "throw",
   },
 );
+
+commentSchema.pre("validate", function normalizeCommentFields(next) {
+  normalizeStringField(this, "content");
+  next();
+});
 
 const Comment = mongoose.model("Comment", commentSchema);
 

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -32,6 +33,11 @@ const notificationSchema = new mongoose.Schema(
     strict: "throw",
   },
 );
+
+notificationSchema.pre("validate", function normalizeNotificationFields(next) {
+  normalizeStringField(this, "message");
+  next();
+});
 
 const Notification = mongoose.model("Notification", notificationSchema);
 

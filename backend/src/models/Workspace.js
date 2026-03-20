@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const workspaceSchema = new mongoose.Schema(
   {
@@ -21,6 +22,11 @@ const workspaceSchema = new mongoose.Schema(
     strict: "throw",
   },
 );
+
+workspaceSchema.pre("validate", function normalizeWorkspaceFields(next) {
+  normalizeStringField(this, "name");
+  next();
+});
 
 const Workspace = mongoose.model("Workspace", workspaceSchema);
 

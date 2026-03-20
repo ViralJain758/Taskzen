@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const projectSchema = new mongoose.Schema(
   {
@@ -33,6 +34,12 @@ const projectSchema = new mongoose.Schema(
     strict: "throw",
   },
 );
+
+projectSchema.pre("validate", function normalizeProjectFields(next) {
+  normalizeStringField(this, "name");
+  normalizeStringField(this, "description");
+  next();
+});
 
 const Project = mongoose.model("Project", projectSchema);
 

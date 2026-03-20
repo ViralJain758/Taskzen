@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeStringField } from "./normalization.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -43,6 +44,17 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ email: 1 }, { unique: true });
+
+userSchema.pre("validate", function normalizeUserFields(next) {
+  normalizeStringField(this, "name");
+
+  if (typeof this.email === "string") {
+    this.email = this.email.trim().toLowerCase();
+  }
+
+  normalizeStringField(this, "avatar");
+  next();
+});
 
 const User = mongoose.model("User", userSchema);
 

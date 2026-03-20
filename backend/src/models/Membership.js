@@ -28,6 +28,13 @@ const membershipSchema = new mongoose.Schema(
 
 membershipSchema.index({ user: 1, workspace: 1 }, { unique: true });
 
+membershipSchema.pre("validate", function normalizeMembershipFields(next) {
+  if (typeof this.role === "string") {
+    this.role = this.role.trim().toLowerCase();
+  }
+  next();
+});
+
 const Membership = mongoose.model("Membership", membershipSchema);
 
 export default Membership;
