@@ -47,249 +47,76 @@ Unlike basic task managers, Taskzen focuses on:
 
 ---
 
-## Monorepo Structure
+## Documentation Index
 
-- backend: Express + MongoDB + Socket.IO API server
-- frontend: React + TypeScript + Vite client
-
-## Tech Stack
-
-### Backend
-
-- Node.js
-- Express 5
-- MongoDB + Mongoose
-- JWT authentication
-- Socket.IO
-
-### Frontend
-
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- TanStack Query
-- Axios
-- Socket.IO Client
-- dnd-kit for drag-and-drop task interactions
-
-## Prerequisites
-
-- Node.js 18+
-- npm 9+
-- MongoDB Atlas cluster (recommended primary)
-
-## Quick Start
-
-### 1. Install dependencies
-
-Backend:
-
-    cd backend
-    npm install
-
-Frontend:
-
-    cd frontend
-    npm install
-
-### 2. Configure backend environment
-
-Create backend/.env with:
-
-    MONGO_URI_ATLAS=your_mongodb_atlas_connection_string
-    # Optional fallback for local/non-Atlas setups:
-    # MONGO_URI=mongodb://127.0.0.1:27017/taskzen
-    JWT_SECRET=your_jwt_secret
-    PORT=5000
-
-MongoDB Atlas quick setup:
-
-1. Create an Atlas project and cluster (M0 is fine for development).
-2. Create a database user with readWrite access.
-3. Add your current IP address in Atlas Network Access.
-4. Copy the mongodb+srv URI from Atlas and set MONGO_URI_ATLAS.
-5. URL-encode special password characters (for example @ -> %40, # -> %23).
-
-For full step-by-step Atlas instructions, see backend/README.md.
-
-### 3. Start backend
-
-    cd backend
-    npm run dev
-
-### 4. Start frontend
-
-    cd frontend
-    npm run dev
-
-Frontend defaults to http://localhost:5173 and backend to http://localhost:5000.
-
-## Applications
-
-### Frontend
-
-- Source: frontend
-- Dev command: npm run dev
-- Build command: npm run build
-- Lint command: npm run lint
-
-### Backend
-
-- Source: backend
-- Dev command: npm run dev
-- API base URL: http://localhost:5000/api
-- Health route: GET /
-
-## Feature Overview
-
-### Real-Time Collaboration
-
-Socket.IO channels support:
-
-- project:task_created
-- project:task_updated
-- project:task_deleted
-- project:comment_created
-- project:comment_deleted
-- notification
-
-### Offline-First Sync
-
-- Actions (task updates, comments) are queued locally when offline
-- UI updates optimistically without blocking user interaction
-- On reconnect, queued actions are synced automatically with backend
-- Ensures no data loss and smooth user experience during network disruptions
-
-### Authentication
-
-- Register and login endpoints
-- JWT token issued on login
-- Token attached to API requests in frontend Axios client
-
-### Workspaces and Roles
-
-- Create and delete workspaces
-- Invite/remove members
-- Owner/admin/member role handling
-- Owner-only role elevation constraints
-
-### Projects
-
-- Create, list, and delete projects inside a workspace
-- Fetch single project details with workspace linkage
-- Project-level Smart Insights endpoint support
-
-### Tasks
-
-- Create and list tasks per project
-- Update status (todo, in_progress, completed)
-- Reassign tasks
-- Update priority (low, medium, high)
-- Delete tasks
-
-### Comments
-
-- Add and list task comments
-- Delete comments by author or privileged workspace role
-
-### Notifications
-
-- Notification feed per user
-- Mark individual notifications as read
-- Mark all notifications as read
-- Real-time notification delivery for key events:
-  - User added to a workspace
-  - Task assigned to user
-  - New comment on user-relevant task
-
-## Architecture
-
-- **Frontend:** React + TypeScript (Vite, Tailwind, TanStack Query)
-- **Backend:** Node.js + Express + MongoDB
-- **Realtime Layer:** Socket.IO (event-driven system)
-- **Offline Sync:** Local action queue + server reconciliation
-- **State Management:** TanStack Query (cache-first, optimistic updates)
-
-### Key Design Decisions
-
-- WebSockets used instead of polling for real-time consistency
-- Optimistic UI updates for better user experience
-- Role-based middleware for secure multi-tenant access
-
-## System Flow
-
-1. User performs action (create/update task)
-2. UI updates optimistically (TanStack Query)
-3. API request sent to backend
-4. Backend processes and emits Socket.IO event
-5. All connected clients receive update in real-time
-6. Offline actions are queued and replayed on reconnect
+- [Getting Started](docs/GETTING_STARTED.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [API Reference](docs/API_REFERENCE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Backend README](backend/README.md)
+- [Frontend README](frontend/README.md)
 
 ---
 
-## Security and Access Control
+## Quick Start
 
-- Protected routes require Bearer JWT
-- Workspace membership and role checks enforced in middleware
-- Role constraints applied for invite/delete/update role workflows
+1. Install dependencies:
 
-## Build and Quality
+```bash
+cd backend
+npm install
 
-Frontend:
+cd ../frontend
+npm install
+```
 
-    cd frontend
-    npm run lint
-    npm run build
+2. Create `backend/.env`:
 
-Backend syntax check:
+```env
+MONGO_URI_ATLAS=your_atlas_connection_string
+MONGO_URI=mongodb://127.0.0.1:27017/taskzen
+JWT_SECRET=your_jwt_secret
+PORT=5000
+```
 
-    cd backend
-    node -c server.js
+3. Start backend:
 
-## Data Fetching Strategy
+```bash
+cd backend
+npm run dev
+```
 
-- Server state is managed with TanStack Query in the frontend.
-- Query cache is used for projects, tasks, members, activities, and insights.
-- Mutations use optimistic cache updates with rollback where appropriate.
-- Background refetch and deduplication are handled by query keys.
+4. Start frontend:
 
-## Scalability Considerations
+```bash
+cd frontend
+npm run dev
+```
 
-- Event-driven architecture reduces polling overhead
-- Query caching minimizes redundant API calls
-- Modular backend structure supports feature expansion
-- Designed for horizontal scaling with stateless API and socket layer separation
+5. Open:
 
-## Troubleshooting
+- Frontend: http://127.0.0.1:5173
+- Backend health: http://127.0.0.1:5000/
 
-### Port already in use
+## Tech Stack
 
-- Backend default: 5000
-- Frontend default: 5173 (Vite may auto-shift to 5174, 5175, etc.)
+- Frontend: React 19, TypeScript, Vite, Tailwind, TanStack Query, Axios, dnd-kit, Socket.IO client
+- Backend: Node.js, Express 5, MongoDB/Mongoose, JWT, Socket.IO, Zod validation
 
-### Real-time updates not appearing
+## Core Features
 
-- Ensure both frontend and backend servers are running
-- Confirm valid login token exists
-- Confirm backend JWT_SECRET matches token signing secret
-- Confirm MongoDB connection is healthy
+- Multi-workspace, role-based collaboration (`owner`, `admin`, `member`)
+- Kanban task board with drag-and-drop
+- Realtime task and comment updates over Socket.IO
+- Offline queue and sync for task/comment actions
+- Smart insights for project health and workload
 
-## Known Limitations
+## Notes
 
-- Offline conflict resolution currently uses last-write-wins strategy
-- Large-scale real-time load not yet optimized with message queues
-- No automated test suite implemented yet
-
-## Roadmap
-
-- Add automated tests (unit/integration/e2e)
-- Add API validation layer (schema-based)
-- Add environment-based frontend API URL configuration
-- Add CI pipeline for lint/build/test
-- Add Docker and deployment manifests
+- Frontend dev server is pinned to port `5173` in [frontend/vite.config.ts](frontend/vite.config.ts).
+- Backend API base is `/api` (for example: `http://127.0.0.1:5000/api/tasks/:projectId`).
 
 ## License
 
-This repository is licensed under the terms in LICENSE.
+See [LICENSE](LICENSE).
