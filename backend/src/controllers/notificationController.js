@@ -18,11 +18,15 @@ export const markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
 
-    const notification = await Notification.findByIdAndUpdate(
-      notificationId,
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, user: req.user._id },
       { isRead: true },
       { new: true },
     );
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
 
     res.json(notification);
   } catch (error) {

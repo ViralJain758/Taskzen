@@ -29,6 +29,17 @@ export const createTask = async (req, res) => {
       });
     }
 
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: project.workspace,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
+      });
+    }
+
     const task = await Task.create({
       title,
       description,
@@ -117,6 +128,25 @@ export const getProjectTasks = async (req, res) => {
   try {
     const { projectId } = req.params;
 
+    const project = await Project.findById(projectId);
+    
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: project.workspace,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
+      });
+    }
+
     const tasks = await Task.find({
       project: projectId,
     })
@@ -141,6 +171,17 @@ export const getProjectAssignees = async (req, res) => {
     if (!project) {
       return res.status(404).json({
         message: "Project not found",
+      });
+    }
+
+    const userMembership = await Membership.findOne({
+      user: req.user._id,
+      workspace: project.workspace,
+    });
+
+    if (!userMembership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
       });
     }
 
@@ -183,6 +224,17 @@ export const updateTaskStatus = async (req, res) => {
     if (!existingTask) {
       return res.status(404).json({
         message: "Task not found",
+      });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: existingTask.project.workspace,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
       });
     }
 
@@ -264,7 +316,25 @@ export const updateTask = async (req, res) => {
     }
 
     // Get the original task to check if assignee is being changed
-    const originalTask = await Task.findById(taskId);
+    const originalTask = await Task.findById(taskId).populate("project");
+    
+    if (!originalTask) {
+      return res.status(404).json({
+        message: "Task not found",
+      });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: originalTask.project.workspace,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
+      });
+    }
+
     const isAssigneeChanging =
       updates.assignee &&
       originalTask.assignee?.toString() !== updates.assignee;
@@ -345,6 +415,17 @@ export const deleteTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({
         message: "Task not found",
+      });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      workspace: task.project.workspace,
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        message: "You are not a member of this workspace",
       });
     }
 
